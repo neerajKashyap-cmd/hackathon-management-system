@@ -11,13 +11,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Health check route
+
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", message: "Hackathon Management System API is running" });
 });
 
-// Routes will be added here as the project grows:
-// app.use("/api/auth", require("./routes/authRoutes"));
+
+app.use("/api/auth", require("./routes/authRoutes"));
 // app.use("/api/teams", require("./routes/teamRoutes"));
 // app.use("/api/submissions", require("./routes/submissionRoutes"));
 // app.use("/api/judging", require("./routes/judgingRoutes"));
