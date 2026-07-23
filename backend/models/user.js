@@ -19,10 +19,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       minlength: 6,
+      maxlength: 15,
     },
     role: {
       type: String,
-      enum: ["participant", "judge", "admin"],
+      enum: [" ", "judge", "admin"],
       default: "participant",
     },
     team: {
