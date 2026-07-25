@@ -5,10 +5,10 @@ const registerUser = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
-    if (!name || !email || !password) {
+    if (!name?.trim() || !email?.trim() || !password?.trim()) {
       return res.status(400).json({ message: "Please fill all required fields" });
     }
-
+    
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: "User already exists with this email" });

@@ -23,6 +23,12 @@ const teamSchema = new mongoose.Schema(
         ref: "User",
       },
     ],
+    assignedJudges: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
   },
   { timestamps: true }
 );
