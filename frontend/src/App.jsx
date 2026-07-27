@@ -41,6 +41,7 @@ function App() {
         {page === "judging" && <JudgingPage user={user} />}
         {page === "leaderboard" && <LeaderboardPage user={user} />}
         {page === "admin" && <AdminPage user={user} />}
+        {page === "announcements" && <AnnouncementsPage user={user} />}
       </div>
     </div>
   );
@@ -121,6 +122,9 @@ function TopNav({ user, page, setPage, onLogout }) {
             Admin
           </button>
         )}
+        <button className={`nav-tab ${page === "announcements" ? "active" : ""}`} onClick={() => setPage("announcements")}>
+          Announcements
+        </button>
         <button className={`nav-tab ${page === "leaderboard" ? "active" : ""}`} onClick={() => setPage("leaderboard")}>
           Leaderboard
         </button>
@@ -772,6 +776,100 @@ function AdminPage({ user }) {
             ))}
           </ul>
         </div>
+      )}
+
+      {message.text && <div className={`alert alert-${message.type}`}>{message.text}</div>}
+    </>
+  );
+}
+
+/* ---------------- Announcements Page ---------------- */
+function AnnouncementsPage({ user }) {
+  const [announcements, setAnnouncements] = useState([]);
+  const [form, setForm] = useState({ title: "", message: "" });
+  const [message, setMessage] = useState({ type: "", text: "" });
+  const [loading, setLoading] = useState(true);
+
+  const authHeader = { headers: { Authorization: `Bearer ${user.token}` } };
+
+  const fetchAnnouncements = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/announcements`, authHeader);
+      setAnnouncements(res.data);
+    } catch {
+      setAnnouncements([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnnouncements();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handlePost = async (e) => {
+    e.preventDefault();
+    setMessage({ type: "", text: "" });
+    try {
+      await axios.post(`${API_URL}/announcements`, form, authHeader);
+      setMessage({ type: "success", text: "Announcement posted." });
+      setForm({ title: "", message: "" });
+      fetchAnnouncements();
+    } catch (err) {
+      setMessage({ type: "error", text: err.response?.data?.message || "Could not post announcement" });
+    }
+  };
+
+  const formatDate = (d) =>
+    new Date(d).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+  if (loading) return null;
+
+  return (
+    <>
+      <div className="page-eyebrow">06 · Updates</div>
+      <div className="page-title">Announcements</div>
+      <div className="page-subtitle">Stay up to date with the latest from the organizers.</div>
+
+      {user.role === "admin" && (
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">Post an announcement</div>
+          </div>
+          <form onSubmit={handlePost}>
+            <div className="field">
+              <label>Title</label>
+              <input name="title" value={form.title} onChange={handleChange} required />
+            </div>
+            <div className="field">
+              <label>Message</label>
+              <textarea name="message" value={form.message} onChange={handleChange} required />
+            </div>
+            <button className="btn-primary" type="submit">Post announcement</button>
+          </form>
+        </div>
+      )}
+
+      {announcements.length === 0 ? (
+        <div className="card">
+          <div className="empty-state">
+            <div className="icon">$ _</div>
+            <p>No announcements yet. Check back soon.</p>
+          </div>
+        </div>
+      ) : (
+        announcements.map((a) => (
+          <div className="card" key={a._id}>
+            <div className="card-header">
+              <div className="card-title">{a.title}</div>
+              <span className="leader-badge">{formatDate(a.createdAt)}</span>
+            </div>
+            <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.6 }}>{a.message}</p>
+          </div>
+        ))
       )}
 
       {message.text && <div className={`alert alert-${message.type}`}>{message.text}</div>}

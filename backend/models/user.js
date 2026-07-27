@@ -19,11 +19,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       minlength: 6,
-      maxlength: 15,
     },
     role: {
       type: String,
-      enum: ["participant", "judge", "admin"],
+      enum: ["participant", "judge", "organizer", "admin"],
       default: "participant",
     },
     team: {
@@ -35,6 +34,7 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Hash password before saving
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
   const salt = await bcrypt.genSalt(10);
@@ -42,6 +42,7 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
+// Compare entered password with hashed password
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };

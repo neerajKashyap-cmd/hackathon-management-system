@@ -22,7 +22,9 @@ app.use("/api/teams", require("./routes/teamRoutes"));
 app.use("/api/admin", require("./routes/adminRoutes"));
 app.use("/api/submissions", require("./routes/submissionRoutes"));
 app.use("/api/judging", require("./routes/judgingRoutes"));
-
+app.use("/api/announcements", require("./routes/announcementRoutes"));
+ app.use("/api/organizer", require("./routes/organizerRoutes"));
+ app.use("/api/hackathons", require("./routes/hackathonRoutes"));
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {

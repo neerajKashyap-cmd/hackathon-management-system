@@ -27,11 +27,26 @@ const eventSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
-    createdBy: {
+    organizer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
+    registrationOpen: {
+      type: Boolean,
+      default: true,
+    },
+    resultsPublished: {
+      type: Boolean,
+      default: false,
+    },
+    winners: [
+      {
+        team: { type: mongoose.Schema.Types.ObjectId, ref: "Team" },
+        position: { type: Number },
+        awardTitle: { type: String, trim: true },
+      },
+    ],
   },
   { timestamps: true }
 );

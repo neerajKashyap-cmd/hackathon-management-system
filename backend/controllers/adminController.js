@@ -19,7 +19,7 @@ const createEvent = async (req, res) => {
       rules,
       registrationDeadline,
       submissionDeadline,
-      createdBy: req.user._id,
+      organizer: req.user._id,
     });
 
     res.status(201).json(event);
