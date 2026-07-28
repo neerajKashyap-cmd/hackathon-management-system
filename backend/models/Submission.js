@@ -6,12 +6,23 @@ const submissionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Team",
       required: true,
-      unique: true,
+    },
+    hackathon: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Event",
     },
     title: {
       type: String,
       required: true,
       trim: true,
+    },
+    problemStatement: {
+      type: String,
+      default: "",
+    },
+    solution: {
+      type: String,
+      default: "",
     },
     description: {
       type: String,
@@ -25,6 +36,7 @@ const submissionSchema = new mongoose.Schema(
     demoLink: {
       type: String,
       trim: true,
+      default: "",
     },
     techStack: [
       {
@@ -32,10 +44,29 @@ const submissionSchema = new mongoose.Schema(
         trim: true,
       },
     ],
+    screenshots: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    presentationPdf: {
+      type: String,
+      default: "",
+    },
+    demoVideoLink: {
+      type: String,
+      default: "",
+    },
     submittedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+    },
+    status: {
+      type: String,
+      enum: ["pending", "under_review", "approved", "rejected"],
+      default: "pending",
     },
   },
   { timestamps: true }

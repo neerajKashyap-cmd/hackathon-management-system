@@ -1,9 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const { getAllHackathons, getHackathonById } = require("../controllers/hackathonController");
-const { protect } = require("../middleware/authMiddleware");
+const { getAllHackathons, getHackathonById, getHackathonLeaderboard } = require("../controllers/hackathonController");
 
-router.get("/", protect, getAllHackathons);
-router.get("/:id", protect, getHackathonById);
+router.get("/", getAllHackathons);
+router.get("/:id", getHackathonById);
+router.get("/:id/leaderboard", getHackathonLeaderboard);
 
 module.exports = router;

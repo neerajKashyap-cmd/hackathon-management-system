@@ -3,12 +3,15 @@ const router = express.Router();
 const {
   createOrUpdateSubmission,
   getMySubmission,
+  getPublicGallery,
   getAllSubmissions,
 } = require("../controllers/submissionController");
-const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+const { protect } = require("../middleware/authMiddleware");
 
-router.post("/", protect, createOrUpdateSubmission);
-router.get("/my-submission", protect, getMySubmission);
-router.get("/", protect, authorizeRoles("admin", "judge"), getAllSubmissions);
+router.get("/gallery", getPublicGallery);
+router.use(protect);
+router.post("/", createOrUpdateSubmission);
+router.get("/my", getMySubmission);
+router.get("/", getAllSubmissions);
 
 module.exports = router;

@@ -1,11 +1,24 @@
 const express = require("express");
 const router = express.Router();
-const { createTeam, joinTeam, getMyTeam, getAllTeams } = require("../controllers/teamController");
-const { protect, authorizeRoles } = require("../middleware/authMiddleware");
+const {
+  createTeam,
+  joinTeam,
+  getMyTeam,
+  removeMember,
+  transferLeadership,
+  leaveTeam,
+  deleteTeam,
+} = require("../controllers/teamController");
+const { protect } = require("../middleware/authMiddleware");
 
-router.post("/", protect, createTeam);
-router.post("/join", protect, joinTeam);
-router.get("/my-team", protect, getMyTeam);
-router.get("/", protect, authorizeRoles("admin", "judge"), getAllTeams);
+router.use(protect);
+
+router.post("/", createTeam);
+router.post("/join", joinTeam);
+router.get("/my", getMyTeam);
+router.post("/:id/remove-member", removeMember);
+router.post("/:id/transfer-leadership", transferLeadership);
+router.post("/:id/leave", leaveTeam);
+router.delete("/:id", deleteTeam);
 
 module.exports = router;

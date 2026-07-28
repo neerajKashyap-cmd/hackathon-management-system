@@ -25,9 +25,45 @@ const userSchema = new mongoose.Schema(
       enum: ["participant", "judge", "organizer", "admin"],
       default: "participant",
     },
+    avatar: {
+      type: String,
+      default: "",
+    },
+    bio: {
+      type: String,
+      default: "",
+    },
+    skills: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
+    isBlocked: {
+      type: Boolean,
+      default: false,
+    },
+    bookmarkedHackathons: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Event",
+      },
+    ],
     team: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Team",
+      default: null,
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    otpCode: {
+      type: String,
+      default: null,
+    },
+    otpExpires: {
+      type: Date,
       default: null,
     },
   },

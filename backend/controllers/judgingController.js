@@ -1,15 +1,27 @@
 const Score = require("../models/Score");
-const Team = require("../models/Team");
+const Team = require("../models/team");
 const Submission = require("../models/Submission");
+const Event = require("../models/Event");
 
-// @desc    Submit or update a score for a team (judge only)
+// @desc    Submit or update score for a team
 // @route   POST /api/judging/score
 const submitScore = async (req, res) => {
   try {
-    const { teamId, innovation, technical, presentation, impact, feedback } = req.body;
+    const {
+      teamId,
+      hackathonId,
+      innovation,
+      technicalComplexity,
+      userInterface,
+      functionality,
+      scalability,
+      documentation,
+      presentation,
+      feedback,
+    } = req.body;
 
-    if ([innovation, technical, presentation, impact].some((v) => v === undefined)) {
-      return res.status(400).json({ message: "All four score fields are required (0-10 each)" });
+    if (!teamId) {
+      return res.status(400).json({ message: "Team ID is required" });
     }
 
     const team = await Team.findById(teamId);
@@ -19,19 +31,32 @@ const submitScore = async (req, res) => {
 
     let score = await Score.findOne({ team: teamId, judge: req.user._id });
 
+    const scoreData = {
+      team: teamId,
+      hackathon: hackathonId || team.hackathon || null,
+      judge: req.user._id,
+      innovation: Number(innovation || 0),
+      technicalComplexity: Number(technicalComplexity || 0),
+      userInterface: Number(userInterface || 0),
+      functionality: Number(functionality || 0),
+      scalability: Number(scalability || 0),
+      documentation: Number(documentation || 0),
+      presentation: Number(presentation || 0),
+      feedback: feedback || "",
+    };
+
     if (score) {
-      Object.assign(score, { innovation, technical, presentation, impact, feedback });
+      Object.assign(score, scoreData);
       await score.save();
     } else {
-      score = await Score.create({
-        team: teamId,
-        judge: req.user._id,
-        innovation,
-        technical,
-        presentation,
-        impact,
-        feedback,
-      });
+      score = await Score.create(scoreData);
+    }
+
+    // Also update submission status to under_review or approved
+    const submission = await Submission.findOne({ team: teamId });
+    if (submission && submission.status === "pending") {
+      submission.status = "under_review";
+      await submission.save();
     }
 
     res.status(201).json(score);
@@ -40,26 +65,47 @@ const submitScore = async (req, res) => {
   }
 };
 
-// @desc    Get teams this judge should score (assigned teams, or all teams with submissions if none assigned)
+// @desc    Get teams assigned to this judge (ONLY teams with submitted projects)
 // @route   GET /api/judging/assigned-teams
 const getAssignedTeams = async (req, res) => {
   try {
-    const teamsWithAssignment = await Team.find({ assignedJudges: req.user._id });
-    const teams = teamsWithAssignment.length > 0 ? teamsWithAssignment : await Team.find();
+    // Find hackathons where judge is assigned directly
+    const assignedEvents = await Event.find({ assignedJudges: req.user._id });
+    const assignedEventIds = assignedEvents.map((e) => e._id);
+
+    let teams = await Team.find({
+      $or: [
+        { assignedJudges: req.user._id },
+        { hackathon: { $in: assignedEventIds } },
+      ],
+    })
+      .populate("leader", "name email avatar")
+      .populate("members", "name email avatar")
+      .populate("hackathon", "title theme");
+
+    if (teams.length === 0) {
+      teams = await Team.find()
+        .populate("leader", "name email avatar")
+        .populate("members", "name email avatar")
+        .populate("hackathon", "title theme");
+    }
 
     const teamIds = teams.map((t) => t._id);
     const submissions = await Submission.find({ team: { $in: teamIds } });
     const myScores = await Score.find({ judge: req.user._id, team: { $in: teamIds } });
 
-    const result = teams.map((team) => {
-      const submission = submissions.find((s) => s.team.toString() === team._id.toString());
-      const myScore = myScores.find((s) => s.team.toString() === team._id.toString());
-      return {
-        team: { _id: team._id, name: team.name },
-        submission: submission || null,
-        myScore: myScore || null,
-      };
-    });
+    // Filter to ONLY return teams that have submitted a project!
+    const result = teams
+      .map((team) => {
+        const submission = submissions.find((s) => s.team.toString() === team._id.toString());
+        const myScore = myScores.find((s) => s.team.toString() === team._id.toString());
+        return {
+          team,
+          submission: submission || null,
+          myScore: myScore || null,
+        };
+      })
+      .filter((item) => item.submission !== null);
 
     res.json(result);
   } catch (error) {
@@ -67,7 +113,7 @@ const getAssignedTeams = async (req, res) => {
   }
 };
 
-// @desc    Get leaderboard (average score per team, highest first)
+// @desc    Get global leaderboard
 // @route   GET /api/judging/leaderboard
 const getLeaderboard = async (req, res) => {
   try {
@@ -82,14 +128,27 @@ const getLeaderboard = async (req, res) => {
       { $sort: { averageScore: -1 } },
     ]);
 
-    const populated = await Team.populate(leaderboard, { path: "_id", select: "name" });
+    const populated = await Team.populate(leaderboard, { path: "_id", select: "name hackathon leader" });
 
-    const formatted = populated.map((entry) => ({
-      teamId: entry._id?._id,
-      teamName: entry._id?.name || "Unknown Team",
-      averageScore: Math.round(entry.averageScore * 10) / 10,
-      judgeCount: entry.judgeCount,
-    }));
+    const formatted = await Promise.all(
+      populated.map(async (entry) => {
+        const submission = entry._id ? await Submission.findOne({ team: entry._id._id }) : null;
+        return {
+          teamId: entry._id?._id,
+          teamName: entry._id?.name || "Unknown Team",
+          averageScore: Math.round(entry.averageScore * 10) / 10,
+          judgeCount: entry.judgeCount,
+          submission: submission
+            ? {
+                title: submission.title,
+                repoLink: submission.repoLink,
+                demoLink: submission.demoLink,
+                techStack: submission.techStack,
+              }
+            : null,
+        };
+      })
+    );
 
     res.json(formatted);
   } catch (error) {
