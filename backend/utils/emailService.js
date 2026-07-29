@@ -5,18 +5,16 @@ const rawUser = process.env.EMAIL_USER || "lpuuniversitycertificate@gmail.com";
 const rawPass = process.env.EMAIL_PASS || "kxjr eltk vbqa vwot";
 const cleanPass = rawPass.replace(/\s+/g, "");
 
-// Gmail Transporter Setup using explicit SSL Port 465 for Cloud & Serverless compatibility
+// Transporter with strict 8-second timeouts to prevent cloud server freezing
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true, // SSL
+  service: "gmail",
   auth: {
     user: rawUser,
     pass: cleanPass,
   },
-  tls: {
-    rejectUnauthorized: false, // Prevents self-signed certificate errors on cloud hosts
-  },
+  connectionTimeout: 8000,
+  greetingTimeout: 5000,
+  socketTimeout: 8000,
 });
 
 /**
@@ -64,11 +62,17 @@ const sendOTPEmail = async (toEmail, otpCode, userName = "Developer") => {
   };
 
   try {
-    const info = await transporter.sendMail(mailOptions);
+    const sendPromise = transporter.sendMail(mailOptions);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Email SMTP connection timeout")), 8000)
+    );
+
+    const info = await Promise.race([sendPromise, timeoutPromise]);
     console.log(`[Email Service] OTP Email sent to ${toEmail}. Message ID: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("[Email Service Error] Failed to send OTP email:", error);
+    console.error("[Email Service Warning] Failed to send OTP email:", error.message);
+    console.log(`[FALLBACK OTP CODE] For ${toEmail}: ${otpCode}`);
     return { success: false, error: error.message };
   }
 };
@@ -114,11 +118,16 @@ const sendAnnouncementEmail = async (recipientEmails, subject, title, messageCon
   };
 
   try {
-    const info = await transporter.sendMail(mailOptions);
+    const sendPromise = transporter.sendMail(mailOptions);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Email SMTP broadcast timeout")), 8000)
+    );
+
+    const info = await Promise.race([sendPromise, timeoutPromise]);
     console.log(`[Email Announcement] Sent to ${recipientEmails.length} recipients. Message ID: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error("[Email Announcement Error] Failed to send broadcast:", error);
+    console.error("[Email Announcement Error] Failed to send broadcast:", error.message);
     return { success: false, error: error.message };
   }
 };
