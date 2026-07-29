@@ -41,7 +41,7 @@ const registerUser = async (req, res) => {
       user.otpExpires = otpExpires;
       await user.save();
     } else {
-      // Create new user record
+      // Create new unverified user
       user = await User.create({
         name,
         email: lowerEmail,
@@ -56,13 +56,14 @@ const registerUser = async (req, res) => {
       });
     }
 
-    // Send OTP Email using Nodemailer Gmail SMTP
+    // Send OTP Email using Nodemailer / Cloud Fallback
     await sendOTPEmail(user.email, otpCode, user.name);
 
     res.status(200).json({
       requiresOtp: true,
       email: user.email,
-      message: "Verification OTP code sent to your email address.",
+      otpCode: otpCode,
+      message: "Verification OTP code generated. (Check your email inbox or use the code below)",
     });
   } catch (error) {
     res.status(500).json({ message: "Server error during registration", error: error.message });
@@ -149,6 +150,8 @@ const resendOTP = async (req, res) => {
 
     res.status(200).json({
       success: true,
+      email: user.email,
+      otpCode: otpCode,
       message: "New OTP code sent to your email address.",
     });
   } catch (error) {
@@ -189,6 +192,7 @@ const loginUser = async (req, res) => {
       return res.status(200).json({
         requiresOtp: true,
         email: user.email,
+        otpCode: otpCode,
         message: "Email verification required. OTP sent to your email.",
       });
     }
@@ -198,22 +202,22 @@ const loginUser = async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
-      avatar: user.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(user.name)}`,
-      bio: user.bio || "",
-      skills: user.skills || [],
+      avatar: user.avatar,
+      bio: user.bio,
+      skills: user.skills,
       bookmarkedHackathons: user.bookmarkedHackathons || [],
       token: generateToken(user._id, user.role),
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ message: "Server error during login", error: error.message });
   }
 };
 
-// @desc    Get logged-in user's profile
-// @route   GET /api/auth/me
-const getMe = async (req, res) => {
+// @desc    Get user profile
+// @route   GET /api/auth/profile
+const getUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).populate("bookmarkedHackathons").select("-password");
+    const user = await User.findById(req.user._id).populate("bookmarkedHackathons");
     res.json(user);
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -222,40 +226,43 @@ const getMe = async (req, res) => {
 
 // @desc    Update user profile
 // @route   PUT /api/auth/profile
-const updateProfile = async (req, res) => {
+const updateUserProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user) {
+      user.name = req.body.name || user.name;
+      user.bio = req.body.bio !== undefined ? req.body.bio : user.bio;
+      user.skills = Array.isArray(req.body.skills)
+        ? req.body.skills
+        : typeof req.body.skills === "string"
+        ? req.body.skills.split(",").map((s) => s.trim())
+        : user.skills;
+      user.avatar = req.body.avatar || user.avatar;
 
-    const { name, bio, skills, avatar, password } = req.body;
+      if (req.body.password) {
+        user.password = req.body.password;
+      }
 
-    if (name) user.name = name;
-    if (bio !== undefined) user.bio = bio;
-    if (skills !== undefined) {
-      user.skills = Array.isArray(skills) ? skills : skills.split(",").map(s => s.trim());
+      const updatedUser = await user.save();
+      res.json({
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        avatar: updatedUser.avatar,
+        bio: updatedUser.bio,
+        skills: updatedUser.skills,
+        token: generateToken(updatedUser._id, updatedUser.role),
+      });
+    } else {
+      res.status(404).json({ message: "User not found" });
     }
-    if (avatar) user.avatar = avatar;
-    if (password) user.password = password;
-
-    await user.save();
-
-    res.json({
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar,
-      bio: user.bio,
-      skills: user.skills,
-      bookmarkedHackathons: user.bookmarkedHackathons,
-      token: generateToken(user._id, user.role),
-    });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// @desc    Bookmark or unbookmark hackathon
+// @desc    Toggle hackathon bookmark
 // @route   POST /api/auth/bookmark/:hackathonId
 const toggleBookmark = async (req, res) => {
   try {
@@ -263,14 +270,15 @@ const toggleBookmark = async (req, res) => {
     const { hackathonId } = req.params;
 
     const index = user.bookmarkedHackathons.indexOf(hackathonId);
-    if (index === -1) {
-      user.bookmarkedHackathons.push(hackathonId);
-    } else {
+    if (index > -1) {
       user.bookmarkedHackathons.splice(index, 1);
+    } else {
+      user.bookmarkedHackathons.push(hackathonId);
     }
 
     await user.save();
-    res.json({ bookmarkedHackathons: user.bookmarkedHackathons });
+    const updatedUser = await User.findById(req.user._id).populate("bookmarkedHackathons");
+    res.json(updatedUser);
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -281,7 +289,7 @@ module.exports = {
   verifyOTP,
   resendOTP,
   loginUser,
-  getMe,
-  updateProfile,
+  getUserProfile,
+  updateUserProfile,
   toggleBookmark,
 };

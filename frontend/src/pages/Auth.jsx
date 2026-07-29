@@ -38,8 +38,11 @@ export default function Auth({ onSuccess, defaultMode = "login" }) {
         const res = await login(form.email, form.password);
         if (res.requiresOtp) {
           setOtpEmail(res.email);
+          if (res.otpCode) {
+            setOtpCode(res.otpCode);
+          }
           setOtpMode(true);
-          setSuccessMsg(res.message || "Enter the 6-digit OTP sent to your email.");
+          setSuccessMsg(res.message || "Enter the 6-digit OTP code below.");
         } else if (res.success) {
           onSuccess && onSuccess();
         } else {
@@ -49,8 +52,11 @@ export default function Auth({ onSuccess, defaultMode = "login" }) {
         const res = await register(form);
         if (res.requiresOtp) {
           setOtpEmail(res.email);
+          if (res.otpCode) {
+            setOtpCode(res.otpCode);
+          }
           setOtpMode(true);
-          setSuccessMsg("Verification OTP code has been sent to your email!");
+          setSuccessMsg(res.message || "Verification OTP code has been generated!");
         } else if (res.success) {
           onSuccess && onSuccess();
         } else {
@@ -76,14 +82,14 @@ export default function Auth({ onSuccess, defaultMode = "login" }) {
     setSubmitting(true);
 
     try {
-      const res = await verifyOTP(otpEmail, otpCode.trim());
+      const res = await verifyOTP(otpEmail, otpCode);
       if (res.success) {
         onSuccess && onSuccess();
       } else {
         setError(res.message);
       }
     } catch (err) {
-      setError("OTP verification failed. Please try again.");
+      setError("Error verifying OTP code.");
     } finally {
       setSubmitting(false);
     }
@@ -93,11 +99,13 @@ export default function Auth({ onSuccess, defaultMode = "login" }) {
     setError("");
     setSuccessMsg("");
     setSubmitting(true);
-
     try {
       const res = await resendOTP(otpEmail);
       if (res.success) {
-        setSuccessMsg(res.message || "A new 6-digit OTP code has been sent to your email!");
+        if (res.otpCode) {
+          setOtpCode(res.otpCode);
+        }
+        setSuccessMsg(res.message || "New OTP code generated!");
       } else {
         setError(res.message);
       }
@@ -108,74 +116,28 @@ export default function Auth({ onSuccess, defaultMode = "login" }) {
     }
   };
 
-  // Demo Login Quick Fill for Evaluation
-  const fillDemoUser = (role) => {
-    setOtpMode(false);
-    switch (role) {
-      case "admin":
-        setForm({ ...form, email: "admin@hackathon.com", password: "adminpassword123" });
-        break;
-      case "organizer":
-        setForm({ ...form, email: "organizer@hackathon.com", password: "organizerpassword123" });
-        break;
-      case "judge":
-        setForm({ ...form, email: "judge1@hackathon.com", password: "judgepassword123" });
-        break;
-      case "participant":
-        setForm({ ...form, email: "participant1@hackathon.com", password: "participantpassword123" });
-        break;
-      default:
-        break;
-    }
-    setMode("login");
-  };
-
-  const isLoading = submitting || authLoading;
+  const isLoading = authLoading || submitting;
 
   return (
-    <div className="auth-page-container">
-      <div className="auth-card-wrapper">
-        <div className="auth-card-header">
-          <div className="auth-brand">
-            <Zap className="brand-icon" />
-            <span>HACK<span className="brand-highlight">SPHERE</span></span>
+    <div className="auth-card-container">
+      <div className="auth-card-glow"></div>
+      <div className="auth-card">
+        {/* Brand Header */}
+        <div className="auth-header text-center mb-6">
+          <div className="brand-badge mx-auto mb-3">
+            <Zap className="brand-badge-icon" />
           </div>
           <h2 className="auth-title">
-            {otpMode
-              ? "Verify Email Address"
-              : mode === "login"
-              ? "Welcome Back to HackSphere"
-              : "Create Your Developer Account"}
+            {otpMode ? "Verify Your Email" : mode === "login" ? "Welcome Back" : "Create Account"}
           </h2>
           <p className="auth-subtitle">
             {otpMode
-              ? `Enter the 6-digit OTP verification code sent to ${otpEmail}`
+              ? `We sent a 6-digit verification code to ${otpEmail}`
               : mode === "login"
-              ? "Access your dashboard, manage teams, submit projects & score."
-              : "Register to participate in top hackathons & build global projects."}
+              ? "Access your HackSphere hackathons & workspace."
+              : "Join the premier enterprise hackathon platform."}
           </p>
         </div>
-
-        {/* Demo Account Switcher Bar */}
-        {!otpMode && (
-          <div className="demo-switcher-bar">
-            <span className="demo-label">⚡ Evaluation Demo Quick-Fill:</span>
-            <div className="demo-buttons">
-              <button type="button" className="demo-pill admin" onClick={() => fillDemoUser("admin")}>
-                Admin
-              </button>
-              <button type="button" className="demo-pill organizer" onClick={() => fillDemoUser("organizer")}>
-                Organizer
-              </button>
-              <button type="button" className="demo-pill judge" onClick={() => fillDemoUser("judge")}>
-                Judge
-              </button>
-              <button type="button" className="demo-pill participant" onClick={() => fillDemoUser("participant")}>
-                Participant
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Mode Toggle */}
         {!otpMode && (
@@ -251,6 +213,7 @@ export default function Auth({ onSuccess, defaultMode = "login" }) {
             </div>
           </form>
         ) : (
+          /* Login / Register Forms */
           <form onSubmit={handleSubmit} className="auth-form">
             {mode === "register" && (
               <div className="form-group">
@@ -260,7 +223,7 @@ export default function Auth({ onSuccess, defaultMode = "login" }) {
                   name="name"
                   value={form.name}
                   onChange={handleChange}
-                  placeholder="e.g. Neeraj Kashyap"
+                  placeholder="John Doe"
                   required
                   disabled={isLoading}
                 />
@@ -274,7 +237,7 @@ export default function Auth({ onSuccess, defaultMode = "login" }) {
                 name="email"
                 value={form.email}
                 onChange={handleChange}
-                placeholder="name@example.com"
+                placeholder="developer@hackathon.com"
                 required
                 disabled={isLoading}
               />
@@ -289,7 +252,6 @@ export default function Auth({ onSuccess, defaultMode = "login" }) {
                 onChange={handleChange}
                 placeholder="••••••••"
                 required
-                minLength={6}
                 disabled={isLoading}
               />
             </div>
@@ -306,13 +268,11 @@ export default function Auth({ onSuccess, defaultMode = "login" }) {
                     disabled={isLoading}
                   >
                     <option value="participant">Participant (Student Developer)</option>
-                    <option value="organizer">Organizer (Host Hackathons)</option>
+                    <option value="organizer">Organizer (Event Host)</option>
                     <option value="judge">Judge (Project Evaluator)</option>
-                    <option value="admin">Platform Administrator</option>
                   </select>
                 </div>
 
-                {/* Only ask for Tech Skills if role is participant */}
                 {form.role === "participant" && (
                   <div className="form-group">
                     <label>Tech Skills (Comma-separated)</label>
@@ -321,7 +281,7 @@ export default function Auth({ onSuccess, defaultMode = "login" }) {
                       name="skills"
                       value={form.skills}
                       onChange={handleChange}
-                      placeholder="React, Node.js, Python, AI, MongoDB"
+                      placeholder="react,node,mongodb"
                       disabled={isLoading}
                     />
                   </div>
@@ -333,11 +293,11 @@ export default function Auth({ onSuccess, defaultMode = "login" }) {
               {isLoading ? (
                 <>
                   <span className="btn-spinner-sm"></span>
-                  <span>{mode === "login" ? "Authenticating..." : "Sending OTP Email..."}</span>
+                  <span>Sending OTP Email...</span>
                 </>
               ) : (
                 <>
-                  <span>{mode === "login" ? "Sign In to Platform" : "Create Account & Send OTP"}</span>
+                  <span>{mode === "login" ? "Sign In to Workspace" : "Send OTP & Register"}</span>
                   <ArrowRight className="btn-icon" />
                 </>
               )}
