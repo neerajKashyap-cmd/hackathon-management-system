@@ -6,18 +6,12 @@ const connectDB = require("./config/db");
 dotenv.config();
 
 // Connect DB and seed initial sample data
-connectDB().then(() => {
-  seedDatabase();
-});
+connectDB()
 
 const app = express();
 const allowedOrigin = process.env.FRONTEND
 app.use(
-  cors({
-    origin: `${allowedOrigin}`,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+  cors(),
 );
 app.use(express.json());
 app.use(express.urlencoded({ limit: "50mb", extended: true }));

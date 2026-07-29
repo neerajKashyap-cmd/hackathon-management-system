@@ -1,7 +1,7 @@
 const Event = require("../models/Event");
-const Team = require("../models/team");
+const Team = require("../models/Team");
 const Submission = require("../models/Submission");
-const User = require("../models/user");
+const User = require("../models/User");
 const Score = require("../models/Score");
 const { sendAnnouncementEmail } = require("../utils/emailService");
 
@@ -68,23 +68,23 @@ const createHackathon = async (req, res) => {
       judgingCriteria: judgingCriteria && judgingCriteria.length > 0 ? judgingCriteria : defaultCriteria,
     });
 
-    // Send Broadcast Email Announcement to all registered users asynchronously
-    User.find({ isEmailVerified: true })
-      .select("email")
-      .then((users) => {
-        const emails = users.map((u) => u.email).filter(Boolean);
-        if (emails.length > 0) {
-          sendAnnouncementEmail(
-            emails,
-            `New Hackathon Launched: ${title}`,
-            `🚀 ${title} is Live on HackSphere!`,
-            `<p>Host: <strong>${req.user.name}</strong></p>
-             <p>${description || tagline || "Register your team now and win prize pool awards!"}</p>
-             <p>Prize Pool: <strong>${hackathon.prizePool}</strong> | Mode: <strong>${hackathon.mode}</strong></p>`
-          );
-        }
-      })
-      .catch((err) => console.error("Error fetching users for broadcast:", err));
+    // Send Broadcast Email Announcement to all registered users
+    try {
+      const verifiedUsers = await User.find({ isEmailVerified: true }).select("email");
+      const emails = verifiedUsers.map((u) => u.email).filter(Boolean);
+      if (emails.length > 0) {
+        await sendAnnouncementEmail(
+          emails,
+          `New Hackathon Launched: ${title}`,
+          `🚀 ${title} is Live on HackSphere!`,
+          `<p>Host: <strong>${req.user.name}</strong></p>
+           <p>${description || tagline || "Register your team now and win prize pool awards!"}</p>
+           <p>Prize Pool: <strong>${hackathon.prizePool}</strong> | Mode: <strong>${hackathon.mode}</strong></p>`
+        );
+      }
+    } catch (err) {
+      console.error("Error sending launch email announcement:", err);
+    }
 
     res.status(201).json(hackathon);
   } catch (error) {
@@ -345,21 +345,21 @@ const publishResults = async (req, res) => {
     await Submission.updateMany({ team: { $in: teamIdsInHackathon } }, { status: "approved" });
 
     // Broadcast email notification to all registered users
-    User.find({ isEmailVerified: true })
-      .select("email")
-      .then((users) => {
-        const emails = users.map((u) => u.email).filter(Boolean);
-        if (emails.length > 0) {
-          sendAnnouncementEmail(
-            emails,
-            `Winners Declared: ${hackathon.title}`,
-            `🏆 Results Published for ${hackathon.title}!`,
-            `<p>The organizer has declared final scores and published the leaderboard!</p>
-             <p>Head to the Leaderboard page to view the winning teams and claim digital verification certificates.</p>`
-          );
-        }
-      })
-      .catch((err) => console.error("Error broadcasting results email:", err));
+    try {
+      const verifiedUsers = await User.find({ isEmailVerified: true }).select("email");
+      const emails = verifiedUsers.map((u) => u.email).filter(Boolean);
+      if (emails.length > 0) {
+        await sendAnnouncementEmail(
+          emails,
+          `Winners Declared: ${hackathon.title}`,
+          `🏆 Results Published for ${hackathon.title}!`,
+          `<p>The organizer has declared final scores and published the leaderboard!</p>
+           <p>Head to the Leaderboard page to view the winning teams and claim digital verification certificates.</p>`
+        );
+      }
+    } catch (err) {
+      console.error("Error broadcasting results email:", err);
+    }
 
     res.json(hackathon);
   } catch (error) {

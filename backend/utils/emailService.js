@@ -1,11 +1,21 @@
 const nodemailer = require("nodemailer");
 
-// Gmail Transporter Setup using Environment Variables
+// Sanitize App Password (remove spaces if any)
+const rawUser = process.env.EMAIL_USER || "lpuuniversitycertificate@gmail.com";
+const rawPass = process.env.EMAIL_PASS || "kxjr eltk vbqa vwot";
+const cleanPass = rawPass.replace(/\s+/g, "");
+
+// Gmail Transporter Setup using explicit SSL Port 465 for Cloud & Serverless compatibility
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true, // SSL
   auth: {
-    user: process.env.EMAIL_USER || "lpuuniversitycertificate@gmail.com",
-    pass: process.env.EMAIL_PASS || "kxjr eltk vbqa vwot",
+    user: rawUser,
+    pass: cleanPass,
+  },
+  tls: {
+    rejectUnauthorized: false, // Prevents self-signed certificate errors on cloud hosts
   },
 });
 
