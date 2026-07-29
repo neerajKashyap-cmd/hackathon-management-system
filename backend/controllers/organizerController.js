@@ -1,7 +1,7 @@
 const Event = require("../models/Event");
-const Team = require("../models/team");
+const Team = require("../models/Team");
 const Submission = require("../models/Submission");
-const User = require("../models/user");
+const User = require("../models/User");
 const Score = require("../models/Score");
 const { sendAnnouncementEmail } = require("../utils/emailService");
 

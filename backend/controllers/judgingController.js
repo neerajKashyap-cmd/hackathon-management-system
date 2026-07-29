@@ -1,5 +1,5 @@
 const Score = require("../models/Score");
-const Team = require("../models/team");
+const Team = require("../models/Team");
 const Submission = require("../models/Submission");
 const Event = require("../models/Event");
 

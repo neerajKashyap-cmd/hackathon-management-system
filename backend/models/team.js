@@ -32,7 +32,6 @@ const teamSchema = new mongoose.Schema(
     hackathon: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Event",
-      // Not required yet — will be enforced once team creation is updated to be hackathon-specific.
     },
     status: {
       type: String,

@@ -1,5 +1,5 @@
 const Submission = require("../models/Submission");
-const Team = require("../models/team");
+const Team = require("../models/Team");
 const Event = require("../models/Event");
 
 // @desc    Create or Update project submission
