@@ -1,5 +1,5 @@
-const Team = require("../models/team");
-const User = require("../models/user");
+const Team = require("../models/Team");
+const User = require("../models/User");
 const Event = require("../models/Event");
 
 const generateInviteCode = () => {
