@@ -1,5 +1,5 @@
 const Event = require("../models/Event");
-const Team = require("../models/Team");
+const Team = require("../models/team");
 const User = require("../models/user");
 const Submission = require("../models/Submission");
 

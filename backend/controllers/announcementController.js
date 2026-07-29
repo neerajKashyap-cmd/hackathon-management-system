@@ -1,4 +1,4 @@
-const Announcement = require("../models/Announcement");
+const Announcement = require("../models/announcement");
 
 // @desc    Create an announcement (admin only)
 // @route   POST /api/announcements
