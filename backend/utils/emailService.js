@@ -1,11 +1,11 @@
 const nodemailer = require("nodemailer");
 
-// Gmail Transporter Setup using User Provided Credentials
+// Gmail Transporter Setup using Environment Variables
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "lpuuniversitycertificate@gmail.com",
-    pass: "kxjr eltk vbqa vwot",
+    user: process.env.EMAIL_USER || "lpuuniversitycertificate@gmail.com",
+    pass: process.env.EMAIL_PASS || "kxjr eltk vbqa vwot",
   },
 });
 
@@ -16,8 +16,9 @@ const transporter = nodemailer.createTransport({
  * @param {string} userName - User Name
  */
 const sendOTPEmail = async (toEmail, otpCode, userName = "Developer") => {
+  const mailSender = process.env.EMAIL_USER || "lpuuniversitycertificate@gmail.com";
   const mailOptions = {
-    from: '"HackSphere Security" <lpuuniversitycertificate@gmail.com>',
+    from: `"HackSphere Security" <${mailSender}>`,
     to: toEmail,
     subject: `Your HackSphere Verification Code: ${otpCode}`,
     html: `
@@ -72,8 +73,9 @@ const sendOTPEmail = async (toEmail, otpCode, userName = "Developer") => {
 const sendAnnouncementEmail = async (recipientEmails, subject, title, messageContent) => {
   if (!recipientEmails || recipientEmails.length === 0) return;
 
+  const mailSender = process.env.EMAIL_USER || "lpuuniversitycertificate@gmail.com";
   const mailOptions = {
-    from: '"HackSphere Platform Broadcast" <lpuuniversitycertificate@gmail.com>',
+    from: `"HackSphere Platform Broadcast" <${mailSender}>`,
     bcc: recipientEmails,
     subject: `📢 ${subject}`,
     html: `
