@@ -1,6 +1,6 @@
 const Event = require("../models/Event");
 const Team = require("../models/Team");
-const User = require("../models/User");
+const User = require("../models/user");
 const Submission = require("../models/Submission");
 
 // @desc    Get system platform analytics (admin only)
