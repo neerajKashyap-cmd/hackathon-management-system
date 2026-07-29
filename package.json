@@ -1,0 +1,13 @@
+{
+  "name": "hackathon-management-system-monorepo",
+  "version": "1.0.0",
+  "description": "Root configuration for Render / Railway / Heroku deployment",
+  "main": "backend/server.js",
+  "scripts": {
+    "postinstall": "cd backend && npm install",
+    "start": "cd backend && node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
