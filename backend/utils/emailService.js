@@ -5,16 +5,23 @@ const rawUser = process.env.EMAIL_USER || "lpuuniversitycertificate@gmail.com";
 const rawPass = process.env.EMAIL_PASS || "kxjr eltk vbqa vwot";
 const cleanPass = rawPass.replace(/\s+/g, "");
 
-// Transporter with strict 8-second timeouts to prevent cloud server freezing
+// Transporter configured with forced IPv4 family (family: 4) and Port 587 STARTTLS for Render/Cloud hosts
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
+  requireTLS: true,
   auth: {
     user: rawUser,
     pass: cleanPass,
   },
-  connectionTimeout: 8000,
+  family: 4, // FORCE IPv4 resolution to eliminate ENETUNREACH IPv6 error on Render
+  connectionTimeout: 10000,
   greetingTimeout: 5000,
-  socketTimeout: 8000,
+  socketTimeout: 10000,
+  tls: {
+    rejectUnauthorized: false,
+  },
 });
 
 /**
@@ -64,7 +71,7 @@ const sendOTPEmail = async (toEmail, otpCode, userName = "Developer") => {
   try {
     const sendPromise = transporter.sendMail(mailOptions);
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Email SMTP connection timeout")), 8000)
+      setTimeout(() => reject(new Error("Email SMTP connection timeout")), 10000)
     );
 
     const info = await Promise.race([sendPromise, timeoutPromise]);
@@ -120,7 +127,7 @@ const sendAnnouncementEmail = async (recipientEmails, subject, title, messageCon
   try {
     const sendPromise = transporter.sendMail(mailOptions);
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Email SMTP broadcast timeout")), 8000)
+      setTimeout(() => reject(new Error("Email SMTP broadcast timeout")), 10000)
     );
 
     const info = await Promise.race([sendPromise, timeoutPromise]);
