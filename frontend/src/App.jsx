@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
@@ -27,6 +27,22 @@ function AppContent() {
   const [page, setPage] = useState("home");
   const [selectedHackathon, setSelectedHackathon] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Automatically sync active page route when logged-in user changes role or logs out
+  useEffect(() => {
+    if (user) {
+      if (page === "home" || page === "dashboard" || page === "organizer" || page === "judge" || page === "admin") {
+        if (user.role === "admin") setPage("admin");
+        else if (user.role === "organizer") setPage("organizer");
+        else if (user.role === "judge") setPage("judge");
+        else setPage("dashboard");
+      }
+    } else {
+      if (["dashboard", "organizer", "judge", "admin", "profile"].includes(page)) {
+        setPage("home");
+      }
+    }
+  }, [user]);
 
   const handleOpenAuth = () => {
     setShowAuthModal(true);

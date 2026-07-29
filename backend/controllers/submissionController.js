@@ -35,11 +35,18 @@ const createOrUpdateSubmission = async (req, res) => {
       return res.status(400).json({ message: "You must be a member or leader of a registered team to submit" });
     }
 
-    // Check submission deadline if hackathon is set
+    // Check submission deadline & result publication status if hackathon is set
     if (team.hackathon) {
       const hackathon = await Event.findById(team.hackathon);
-      if (hackathon && hackathon.submissionDeadline && new Date() > new Date(hackathon.submissionDeadline)) {
-        return res.status(400).json({ message: "Submission deadline has passed. Submissions are closed." });
+      if (hackathon) {
+        if (hackathon.resultsPublished || hackathon.status === "completed") {
+          return res.status(400).json({
+            message: "Results have been announced for this hackathon. Project submissions can no longer be edited.",
+          });
+        }
+        if (hackathon.submissionDeadline && new Date() > new Date(hackathon.submissionDeadline)) {
+          return res.status(400).json({ message: "Submission deadline has passed. Submissions are closed." });
+        }
       }
     }
 

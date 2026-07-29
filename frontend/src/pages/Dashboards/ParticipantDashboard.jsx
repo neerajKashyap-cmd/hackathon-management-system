@@ -176,7 +176,7 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
         </div>
       </div>
 
-      {/* Multi-Hackathon Workspace Switcher Banner with Interactive Buttons */}
+      {/* Multi-Hackathon Workspace Switcher Banner */}
       {teams.length > 1 && (
         <div className="workspace-switcher-banner mb-6">
           <div className="switcher-header">
@@ -200,7 +200,6 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
                     <span className="tab-hackathon-name">{t.hackathon?.title || "Hackathon"}</span>
                     <span className="tab-team-name">Team: {t.name}</span>
                   </div>
-                  {isSelected && <CheckCircle className="tab-check-icon" />}
                 </button>
               );
             })}
@@ -283,10 +282,16 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
               <div className="panel-header-row">
                 <h3 className="panel-title"><Code className="title-icon" /> Project Submission</h3>
                 {activeTeam && (
-                  <button className="btn-primary-glow sm" onClick={() => setShowSubmitModal(true)}>
-                    {activeSubmission ? <Edit className="btn-icon" /> : <Plus className="btn-icon" />}
-                    {activeSubmission ? "Edit Project" : "Submit Project"}
-                  </button>
+                  isResultsPublished ? (
+                    <span className="badge-warning font-mono text-xs px-3 py-1 rounded-full font-bold">
+                      🔒 Submissions Locked (Results Announced)
+                    </span>
+                  ) : (
+                    <button className="btn-primary-glow sm" onClick={() => setShowSubmitModal(true)}>
+                      {activeSubmission ? <Edit className="btn-icon" /> : <Plus className="btn-icon" />}
+                      {activeSubmission ? "Edit Project" : "Submit Project"}
+                    </button>
+                  )
                 )}
               </div>
 

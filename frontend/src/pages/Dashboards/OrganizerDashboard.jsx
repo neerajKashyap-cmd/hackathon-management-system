@@ -213,14 +213,15 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
   const handlePublishResults = async () => {
     if (!activeHackathon) return;
     try {
-      await api.post(`/organizer/hackathons/${activeHackathon._id}/publish-results`, {
+      const res = await api.post(`/organizer/hackathons/${activeHackathon._id}/publish-results`, {
         winners: registrations.slice(0, 3).map((t, idx) => ({
           team: t._id,
           position: idx + 1,
           awardTitle: idx === 0 ? "1st Winner" : idx === 1 ? "2nd Winner" : "3rd Winner",
         })),
       });
-      alert("Hackathon results published successfully!");
+      alert("Hackathon results & winner rankings published successfully!");
+      setActiveHackathon(res.data);
       fetchMyHackathons();
     } catch (err) {
       alert(err.response?.data?.message || "Error publishing results");
@@ -264,6 +265,8 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
     }
     setShowCreateModal(true);
   };
+
+  const isPublishDisabled = activeHackathon?.resultsPublished && !activeHackathon?.hasUnpublishedScoreChanges;
 
   return (
     <div className="section-container organizer-dashboard-page">
@@ -379,12 +382,20 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
                 <Users className="title-icon" /> Registered Teams for: <span className="text-cyan">{activeHackathon.title}</span>
                 <span className="badge-success ml-3 font-mono text-xs">{registrations.length} Teams Registered</span>
               </h3>
-              <p className="text-xs text-gray-400 mt-1">Review team rosters, approve or reject registrations, and inspect submitted project links.</p>
+              <p className="text-xs text-gray-400 mt-1">Review team rosters, approve or reject registrations, inspect submitted project links, and check judge evaluations.</p>
             </div>
 
-            <button className="btn-hero-primary sm" onClick={handlePublishResults}>
-              <Award className="btn-icon" /> Publish Results & Announce Winners
-            </button>
+            <div>
+              {isPublishDisabled ? (
+                <button className="btn-disabled-locked sm" disabled title="Results are published and up to date">
+                  <Check className="btn-icon" /> Results Published & Winners Announced
+                </button>
+              ) : (
+                <button className="btn-hero-primary sm" onClick={handlePublishResults}>
+                  <Award className="btn-icon" /> Publish Results & Announce Winners
+                </button>
+              )}
+            </div>
           </div>
 
           {registrations.length === 0 ? (
@@ -399,6 +410,7 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
                     <th>Roster Count</th>
                     <th>Project Submission</th>
                     <th>Assigned Judges</th>
+                    <th>Judging Evaluation</th>
                     <th>Approval Status</th>
                     <th>Actions</th>
                   </tr>
@@ -443,6 +455,17 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
                         </button>
                       </td>
                       <td>
+                        {t.isJudged ? (
+                          <span className="badge-success font-mono text-xs font-bold px-2 py-1 rounded">
+                            ✔ Judged ({t.avgScore}/70)
+                          </span>
+                        ) : (
+                          <span className="badge-warning font-mono text-xs font-bold px-2 py-1 rounded">
+                            ⌛ Pending Evaluation
+                          </span>
+                        )}
+                      </td>
+                      <td>
                         <StatusBadge status={t.status || "pending"} />
                       </td>
                       <td>
@@ -450,7 +473,7 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
                           <button
                             className="icon-action-btn check"
                             onClick={() => handleUpdateTeamStatus(t._id, "approved")}
-                            title="Approve Team Registration"
+                            title="Approve Team Registration for Judging"
                           >
                             <Check />
                           </button>

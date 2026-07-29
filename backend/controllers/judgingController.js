@@ -59,13 +59,24 @@ const submitScore = async (req, res) => {
       await submission.save();
     }
 
+    // Flag hackathon that scores have changed so organizer can re-publish
+    const targetHackathonId = hackathonId || team.hackathon;
+    if (targetHackathonId) {
+      const hackathon = await Event.findById(targetHackathonId);
+      if (hackathon) {
+        hackathon.hasUnpublishedScoreChanges = true;
+        hackathon.resultsPublished = false; // Automatically re-enables "Publish Results" button for organizer
+        await hackathon.save();
+      }
+    }
+
     res.status(201).json(score);
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// @desc    Get teams assigned to this judge (ONLY teams with submitted projects)
+// @desc    Get teams assigned to this judge (ONLY APPROVED teams with submitted projects)
 // @route   GET /api/judging/assigned-teams
 const getAssignedTeams = async (req, res) => {
   try {
@@ -94,8 +105,9 @@ const getAssignedTeams = async (req, res) => {
     const submissions = await Submission.find({ team: { $in: teamIds } });
     const myScores = await Score.find({ judge: req.user._id, team: { $in: teamIds } });
 
-    // Filter to ONLY return teams that have submitted a project!
+    // Filter to ONLY return teams that are APPROVED by the organizer AND have submitted a project!
     const result = teams
+      .filter((team) => team.status === "approved")
       .map((team) => {
         const submission = submissions.find((s) => s.team.toString() === team._id.toString());
         const myScore = myScores.find((s) => s.team.toString() === team._id.toString());

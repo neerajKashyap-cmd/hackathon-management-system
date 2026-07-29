@@ -2,6 +2,7 @@ const Event = require("../models/Event");
 const Team = require("../models/team");
 const Submission = require("../models/Submission");
 const User = require("../models/user");
+const Score = require("../models/Score");
 const { sendAnnouncementEmail } = require("../utils/emailService");
 
 // Helper: check ownership
@@ -170,7 +171,7 @@ const toggleRegistration = async (req, res) => {
   }
 };
 
-// @desc    Get all teams & submissions registered for a hackathon
+// @desc    Get all teams, submissions & judging scores for a hackathon
 // @route   GET /api/organizer/hackathons/:id/registrations
 const getHackathonRegistrations = async (req, res) => {
   try {
@@ -182,17 +183,26 @@ const getHackathonRegistrations = async (req, res) => {
       .populate("members", "name email avatar")
       .populate("assignedJudges", "name email");
 
-    const teamsWithSubmissions = await Promise.all(
+    const teamsWithSubmissionsAndScores = await Promise.all(
       teams.map(async (t) => {
         const submission = await Submission.findOne({ team: t._id });
+        const scores = await Score.find({ team: t._id }).populate("judge", "name email");
+        const avgScore =
+          scores.length > 0
+            ? Math.round((scores.reduce((sum, s) => sum + s.totalScore, 0) / scores.length) * 10) / 10
+            : null;
+
         return {
           ...t.toObject(),
           submission: submission || null,
+          scores: scores || [],
+          avgScore: avgScore,
+          isJudged: scores.length > 0,
         };
       })
     );
 
-    res.json(teamsWithSubmissions);
+    res.json(teamsWithSubmissionsAndScores);
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -321,6 +331,7 @@ const publishResults = async (req, res) => {
     const { winners } = req.body; // array of { team, position, awardTitle }
 
     hackathon.resultsPublished = true;
+    hackathon.hasUnpublishedScoreChanges = false;
     hackathon.status = "completed";
     if (Array.isArray(winners)) {
       hackathon.winners = winners;

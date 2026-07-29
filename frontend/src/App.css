@@ -974,9 +974,134 @@
   margin: 0 auto 2rem;
 }
 
+/* Search & Filter Component System */
+.search-filter-wrapper {
+  margin-top: 1.75rem;
+  background: rgba(14, 19, 31, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  padding: 1.25rem 1.5rem;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.search-input-box {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.search-input-box .search-icon {
+  position: absolute;
+  left: 1.25rem;
+  width: 20px;
+  height: 20px;
+  color: #8b5cf6;
+  pointer-events: none;
+}
+
+.search-input-box input {
+  width: 100%;
+  padding: 0.85rem 1rem 0.85rem 3.2rem;
+  background: rgba(6, 8, 13, 0.9);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 14px;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: all 0.25s ease;
+}
+
+.search-input-box input:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.35);
+  background: rgba(6, 8, 13, 0.95);
+}
+
+.filter-controls-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  justify-content: space-between;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.filter-label {
+  font-size: 0.825rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 0.25rem;
+}
+
+.filter-pill {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-pill:hover {
+  background: rgba(139, 92, 246, 0.15);
+  color: #ffffff;
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.filter-pill.active {
+  background: linear-gradient(135deg, #8b5cf6, #06b6d4);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
+}
+
+.bookmark-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #f59e0b;
+  padding: 0.45rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.825rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bookmark-toggle-btn:hover,
+.bookmark-toggle-btn.active {
+  background: #f59e0b;
+  color: #000000;
+  border-color: #f59e0b;
+  box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+}
+
 /* --------------------------------------------------------------------------
    8. HACKATHON CARDS & DIRECTORY
    -------------------------------------------------------------------------- */
+.directory-grid-container {
+  padding-top: 2.5rem;
+}
+
 .hackathons-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -2769,3 +2894,28 @@
   justify-content: space-between;
   align-items: center;
 }
+
+/* Disabled Locked Button State */
+.btn-disabled-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.25rem;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  background: rgba(30, 41, 59, 0.7) !important;
+  color: #64748b !important;
+  border: 1px dashed rgba(100, 116, 139, 0.5) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+  opacity: 0.7 !important;
+  pointer-events: none !important;
+  transform: none !important;
+  user-select: none;
+}
+
+.btn-disabled-locked .btn-icon {
+  color: #64748b !important;
+}
+

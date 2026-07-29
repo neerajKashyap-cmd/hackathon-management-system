@@ -79,6 +79,10 @@ const eventSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    hasUnpublishedScoreChanges: {
+      type: Boolean,
+      default: false,
+    },
     assignedJudges: [
       {
         type: mongoose.Schema.Types.ObjectId,
