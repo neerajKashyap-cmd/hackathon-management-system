@@ -11,21 +11,22 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: "Please fill all required fields" });
     }
 
+    if (!role || !["participant", "judge", "organizer"].includes(role)) {
+      return res.status(400).json({ message: "Role selection is mandatory. Please choose Participant, Organizer, or Judge." });
+    }
+
     const lowerEmail = email.toLowerCase().trim();
     let user = await User.findOne({ email: lowerEmail });
 
     if (user) {
-      return res.status(400).json({ message: "User already exists with this email" });
+      return res.status(400).json({ message: `Account "${lowerEmail}" already exists. Please sign in.` });
     }
-
-    // Only allow participant, judge, or organizer registration from frontend (Admin is backend/seed created only)
-    const allowedRole = ["participant", "judge", "organizer"].includes(role) ? role : "participant";
 
     user = await User.create({
       name,
       email: lowerEmail,
       password,
-      role: allowedRole,
+      role,
       bio: bio || "",
       skills: Array.isArray(skills) ? skills : (skills ? skills.split(",").map((s) => s.trim()) : []),
       avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,
@@ -86,20 +87,20 @@ const googleAuth = async (req, res) => {
     const lowerEmail = userEmail.toLowerCase().trim();
     let user = await User.findOne({ email: lowerEmail }).populate("bookmarkedHackathons");
 
-    const allowedRole = ["participant", "judge", "organizer"].includes(role) ? role : "participant";
-
+    // 1. If user does NOT exist yet (First-Time Google Registration)
     if (!user) {
-      // Create new user account via Google OAuth
+      const selectedRole = role && ["participant", "organizer", "judge"].includes(role) ? role : "participant";
+
       user = await User.create({
         name: userName || lowerEmail.split("@")[0],
         email: lowerEmail,
         password: `GoogleOAuth_${Date.now()}_${Math.random()}`,
-        role: allowedRole,
+        role: selectedRole,
         avatar: userAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(userName || lowerEmail)}`,
         isEmailVerified: true,
       });
     } else {
-      // Mark verified
+      // 2. If user ALREADY EXISTS in database, log them in seamlessly with their registered role!
       if (!user.isEmailVerified) {
         user.isEmailVerified = true;
         await user.save();
@@ -116,10 +117,11 @@ const googleAuth = async (req, res) => {
       email: user.email,
       role: user.role,
       avatar: user.avatar,
-      bio: user.bio || "",
-      skills: user.skills || [],
+      bio: user.bio,
+      skills: user.skills,
       bookmarkedHackathons: user.bookmarkedHackathons || [],
       token: generateToken(user._id, user.role),
+      message: `Welcome back ${user.name}!`,
     });
   } catch (error) {
     res.status(500).json({ message: "Server error during Google auth", error: error.message });
@@ -179,6 +181,10 @@ const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    if (!email || !password) {
+      return res.status(400).json({ message: "Please provide email and password" });
+    }
+
     const user = await User.findOne({ email: email.toLowerCase().trim() }).populate("bookmarkedHackathons");
 
     if (!user) {
@@ -216,11 +222,13 @@ const loginUser = async (req, res) => {
   }
 };
 
-// @desc    Get user profile
-// @route   GET /api/auth/profile
-const getUserProfile = async (req, res) => {
+// @desc    Get logged in user profile
+// @route   GET /api/auth/me
+const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).populate("bookmarkedHackathons");
+    const user = await User.findById(req.user._id)
+      .select("-password")
+      .populate("bookmarkedHackathons");
     res.json(user);
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
@@ -229,24 +237,30 @@ const getUserProfile = async (req, res) => {
 
 // @desc    Update user profile
 // @route   PUT /api/auth/profile
-const updateUserProfile = async (req, res) => {
+const updateProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
+
     if (user) {
       user.name = req.body.name || user.name;
       user.bio = req.body.bio !== undefined ? req.body.bio : user.bio;
-      user.skills = Array.isArray(req.body.skills)
-        ? req.body.skills
-        : typeof req.body.skills === "string"
-        ? req.body.skills.split(",").map((s) => s.trim())
-        : user.skills;
       user.avatar = req.body.avatar || user.avatar;
+      user.githubUrl = req.body.githubUrl !== undefined ? req.body.githubUrl : user.githubUrl;
+      user.linkedinUrl = req.body.linkedinUrl !== undefined ? req.body.linkedinUrl : user.linkedinUrl;
+      user.portfolioUrl = req.body.portfolioUrl !== undefined ? req.body.portfolioUrl : user.portfolioUrl;
+
+      if (req.body.skills) {
+        user.skills = Array.isArray(req.body.skills)
+          ? req.body.skills
+          : req.body.skills.split(",").map((s) => s.trim());
+      }
 
       if (req.body.password) {
         user.password = req.body.password;
       }
 
       const updatedUser = await user.save();
+
       res.json({
         _id: updatedUser._id,
         name: updatedUser.name,
@@ -255,6 +269,10 @@ const updateUserProfile = async (req, res) => {
         avatar: updatedUser.avatar,
         bio: updatedUser.bio,
         skills: updatedUser.skills,
+        githubUrl: updatedUser.githubUrl,
+        linkedinUrl: updatedUser.linkedinUrl,
+        portfolioUrl: updatedUser.portfolioUrl,
+        bookmarkedHackathons: updatedUser.bookmarkedHackathons || [],
         token: generateToken(updatedUser._id, updatedUser.role),
       });
     } else {
@@ -269,8 +287,10 @@ const updateUserProfile = async (req, res) => {
 // @route   POST /api/auth/bookmark/:hackathonId
 const toggleBookmark = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
     const { hackathonId } = req.params;
+    const user = await User.findById(req.user._id);
+
+    if (!user) return res.status(404).json({ message: "User not found" });
 
     const index = user.bookmarkedHackathons.indexOf(hackathonId);
     if (index > -1) {
@@ -280,8 +300,9 @@ const toggleBookmark = async (req, res) => {
     }
 
     await user.save();
-    const updatedUser = await User.findById(req.user._id).populate("bookmarkedHackathons");
-    res.json(updatedUser);
+
+    const updatedUser = await User.findById(user._id).populate("bookmarkedHackathons");
+    res.json(updatedUser.bookmarkedHackathons);
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -293,9 +314,9 @@ module.exports = {
   verifyOTP,
   resendOTP,
   loginUser,
-  getMe: getUserProfile,
-  getUserProfile,
-  updateProfile: updateUserProfile,
-  updateUserProfile,
+  getMe,
+  updateProfile,
   toggleBookmark,
+  getUserProfile: getMe,
+  updateUserProfile: updateProfile,
 };

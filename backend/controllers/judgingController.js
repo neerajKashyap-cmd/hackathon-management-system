@@ -29,6 +29,17 @@ const submitScore = async (req, res) => {
       return res.status(404).json({ message: "Team not found" });
     }
 
+    // Verify Organizer Judge Assignment
+    const hackathon = await Event.findById(hackathonId || team.hackathon);
+    const isAssignedToTeam = team.assignedJudges && team.assignedJudges.map((id) => id.toString()).includes(req.user._id.toString());
+    const isAssignedToHackathon = hackathon && hackathon.assignedJudges && hackathon.assignedJudges.map((id) => id.toString()).includes(req.user._id.toString());
+
+    if (!isAssignedToTeam && !isAssignedToHackathon && req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "Access Denied: The organizer has not assigned you to judge this team or hackathon yet.",
+      });
+    }
+
     let score = await Score.findOne({ team: teamId, judge: req.user._id });
 
     const scoreData = {
@@ -60,14 +71,10 @@ const submitScore = async (req, res) => {
     }
 
     // Flag hackathon that scores have changed so organizer can re-publish
-    const targetHackathonId = hackathonId || team.hackathon;
-    if (targetHackathonId) {
-      const hackathon = await Event.findById(targetHackathonId);
-      if (hackathon) {
-        hackathon.hasUnpublishedScoreChanges = true;
-        hackathon.resultsPublished = false; // Automatically re-enables "Publish Results" button for organizer
-        await hackathon.save();
-      }
+    if (hackathon) {
+      hackathon.hasUnpublishedScoreChanges = true;
+      hackathon.resultsPublished = false; // Re-enables "Publish Results" button for organizer
+      await hackathon.save();
     }
 
     res.status(201).json(score);
@@ -76,15 +83,18 @@ const submitScore = async (req, res) => {
   }
 };
 
-// @desc    Get teams assigned to this judge (ONLY APPROVED teams with submitted projects)
+// @desc    Get teams assigned to this judge (ONLY APPROVED teams assigned by organizer with submitted projects)
 // @route   GET /api/judging/assigned-teams
 const getAssignedTeams = async (req, res) => {
   try {
-    // Find hackathons where judge is assigned directly
+    const userIdStr = req.user._id.toString();
+
+    // Find hackathons where judge is assigned directly by the organizer
     const assignedEvents = await Event.find({ assignedJudges: req.user._id });
     const assignedEventIds = assignedEvents.map((e) => e._id);
 
-    let teams = await Team.find({
+    // STRICT FILTER: Only return teams assigned to this judge or in hackathons assigned to this judge!
+    const teams = await Team.find({
       $or: [
         { assignedJudges: req.user._id },
         { hackathon: { $in: assignedEventIds } },
@@ -95,10 +105,7 @@ const getAssignedTeams = async (req, res) => {
       .populate("hackathon", "title theme");
 
     if (teams.length === 0) {
-      teams = await Team.find()
-        .populate("leader", "name email avatar")
-        .populate("members", "name email avatar")
-        .populate("hackathon", "title theme");
+      return res.json([]);
     }
 
     const teamIds = teams.map((t) => t._id);

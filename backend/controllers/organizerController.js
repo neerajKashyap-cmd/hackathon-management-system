@@ -324,7 +324,39 @@ const publishResults = async (req, res) => {
     const submittedCount = await Submission.countDocuments({ hackathon: hackathon._id });
     if (submittedCount === 0) {
       return res.status(400).json({
-        message: "Cannot publish results: At least 1 team must submit a project first before results can be declared.",
+        message: "Cannot declare results: At least 1 team must submit a project first before results can be published.",
+      });
+    }
+
+    // MANDATORY JUDGING CHECK: Ensure ALL submitted teams have been evaluated & scored by assigned judges!
+    const teamsInHackathon = await Team.find({ hackathon: hackathon._id }).select("_id name");
+    const teamIdsInHackathon = teamsInHackathon.map((t) => t._id);
+
+    const submissions = await Submission.find({
+      $or: [{ hackathon: hackathon._id }, { team: { $in: teamIdsInHackathon } }],
+    }).populate("team", "name");
+
+    if (submissions.length === 0) {
+      return res.status(400).json({
+        message: "Cannot declare results: No project submissions were found for this hackathon.",
+      });
+    }
+
+    // Check scores for each submission's team
+    const unjudgedTeams = [];
+    for (const sub of submissions) {
+      const scoreCount = await Score.countDocuments({ team: sub.team?._id || sub.team });
+      if (scoreCount === 0) {
+        const teamName = sub.team?.name || "Submitted Team";
+        if (!unjudgedTeams.includes(teamName)) {
+          unjudgedTeams.push(teamName);
+        }
+      }
+    }
+
+    if (unjudgedTeams.length > 0) {
+      return res.status(400).json({
+        message: `Cannot declare results: The following submitted team(s) have NOT been evaluated or scored by judges yet: "${unjudgedTeams.join(", ")}". Assigned judges must evaluate their project first.`,
       });
     }
 
@@ -340,8 +372,6 @@ const publishResults = async (req, res) => {
     await hackathon.save();
 
     // Automatically update status of all submitted projects in this hackathon to "approved" (evaluated)
-    const teamsInHackathon = await Team.find({ hackathon: hackathon._id }).select("_id");
-    const teamIdsInHackathon = teamsInHackathon.map((t) => t._id);
     await Submission.updateMany({ team: { $in: teamIdsInHackathon } }, { status: "approved" });
 
     // Broadcast email notification to all registered users

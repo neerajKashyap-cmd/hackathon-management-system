@@ -10,16 +10,14 @@ import {
   Key,
   Copy,
   Check,
-  CheckCircle,
   Clock,
   LogOut,
   Sparkles,
   ExternalLink,
-  ShieldAlert,
   Award,
-  Video,
-  FileText,
   Lock,
+  Layers,
+  Zap,
 } from "lucide-react";
 
 export default function ParticipantDashboard({ setPage, setSelectedHackathon }) {
@@ -58,12 +56,13 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
     api
       .get("/teams/my-teams")
       .then((res) => {
-        setTeams(res.data);
-        if (res.data.length > 0 && !selectedTeamId) {
-          setSelectedTeamId(res.data[0]._id);
+        const teamList = Array.isArray(res.data) ? res.data : [];
+        setTeams(teamList);
+        if (teamList.length > 0) {
+          setSelectedTeamId((prev) => (prev && teamList.some((t) => t._id === prev) ? prev : teamList[0]._id));
         }
       })
-      .catch((err) => console.error(err))
+      .catch((err) => console.error("Error loading participant teams:", err))
       .finally(() => setLoading(false));
   };
 
@@ -153,128 +152,175 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
     activeTeam?.hackathon?.status === "completed" ||
     activeSubmission?.hackathon?.resultsPublished;
 
+  const totalSubmissions = teams.filter((t) => t.submission).length;
+
   return (
-    <div className="section-container participant-dashboard-page">
-      <div className="page-header flex justify-between items-center flex-wrap gap-4">
+    <div className="participant-dashboard-container pb-16">
+      {/* Header Bar */}
+      <div className="dashboard-header-bar">
         <div>
-          <span className="section-badge"><Users className="badge-icon" /> PARTICIPANT PORTAL</span>
-          <h1 className="page-title">Developer Workspace</h1>
-          <p className="page-subtitle">
-            Manage your team, track submission deadlines, and verify your results.
+          <div className="flex items-center gap-2 mb-1">
+            <span className="section-badge"><Users className="badge-icon" /> PARTICIPANT PORTAL</span>
+          </div>
+          <h1 className="page-title text-2xl font-bold text-white">Developer Workspace</h1>
+          <p className="text-sm text-gray-400">
+            Manage your registered hackathons, submit project code, and view live results.
           </p>
         </div>
 
-        <div className="header-actions flex items-center gap-3">
-          <button className="btn-secondary-glow" onClick={() => setShowJoinModal(true)}>
-            <Key className="btn-icon" /> Join via Invite Code
+        <div className="flex items-center gap-3">
+          <button className="btn-secondary-glow btn-sm flex items-center gap-1.5" onClick={() => setShowJoinModal(true)}>
+            <Key className="w-4 h-4 text-cyan" /> Join Team via Code
+          </button>
+          <button className="btn-primary-glow btn-sm flex items-center gap-1.5" onClick={() => setPage("hackathons")}>
+            <Zap className="w-4 h-4" /> Browse Hackathons
           </button>
         </div>
       </div>
 
-      {/* Multi-Hackathon Workspace Switcher Banner */}
+      {/* Top 4 Stat Cards */}
+      <div className="participant-stats-grid">
+        <div className="dash-stat-card">
+          <div className="dash-stat-label">Registered Events</div>
+          <div className="dash-stat-value">{teams.length}</div>
+        </div>
+
+        <div className="dash-stat-card">
+          <div className="dash-stat-label">Active Submissions</div>
+          <div className="dash-stat-value cyan">{totalSubmissions} / {teams.length}</div>
+        </div>
+
+        <div className="dash-stat-card">
+          <div className="dash-stat-label">Current Team</div>
+          <div className="dash-stat-value purple text-lg truncate">{activeTeam ? activeTeam.name : "None"}</div>
+        </div>
+
+        <div className="dash-stat-card">
+          <div className="dash-stat-label">Registration Status</div>
+          <div className="text-sm font-bold text-emerald-400 capitalize mt-1">
+            {activeTeam?.status ? activeTeam.status.toUpperCase() : "ACTIVE"}
+          </div>
+        </div>
+      </div>
+
+      {/* Workspace Switcher Tabs */}
       {teams.length > 1 && (
-        <div className="workspace-switcher-banner mb-6">
-          <span className="switcher-label">Active Workspace:</span>
-          <div className="workspace-tabs-scroll">
-            {teams.map((t) => (
-              <button
-                key={t._id}
-                className={`workspace-tab-btn ${t._id === activeTeam?._id ? "active" : ""}`}
-                onClick={() => setSelectedTeamId(t._id)}
-              >
-                <span className="tab-team-name">{t.name}</span>
-                <span className="tab-hackathon-name">({t.hackathon?.title})</span>
-              </button>
-            ))}
+        <div className="dash-card-box mb-6 py-3 flex items-center gap-3 overflow-x-auto">
+          <span className="text-xs font-bold text-gray-400 flex items-center gap-1 shrink-0">
+            <Layers className="w-4 h-4 text-cyan" /> Switch Hackathon:
+          </span>
+          <div className="flex gap-2">
+            {teams.map((t) => {
+              const isActive = t._id === activeTeam?._id;
+              return (
+                <button
+                  key={t._id}
+                  onClick={() => setSelectedTeamId(t._id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+                    isActive
+                      ? "bg-cyan-600 text-white border border-cyan-400"
+                      : "bg-gray-900 text-gray-400 hover:text-white border border-gray-800"
+                  }`}
+                >
+                  <span>{t.name}</span>
+                  <span className="opacity-60 text-2xs">({t.hackathon?.title || "Hackathon"})</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
       {loading ? (
-        <div className="loading-spinner-container py-12">
+        <div className="loading-spinner-container py-16">
           <div className="spinner"></div>
         </div>
       ) : teams.length === 0 ? (
-        <div className="empty-state-card text-center py-12">
-          <Code className="empty-icon mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-white mb-2">You are not registered in any hackathon teams yet.</h3>
-          <p className="text-gray-400 mb-6 max-w-md mx-auto">
-            Browse live hackathons to register a new team or enter a 6-character team invite code provided by your teammate.
+        <div className="dash-card-box p-12 text-center max-w-xl mx-auto">
+          <Code className="w-12 h-12 text-cyan mx-auto mb-3" />
+          <h3 className="text-xl font-bold text-white mb-2">No Registered Teams Yet</h3>
+          <p className="text-sm text-gray-400 mb-6">
+            You haven't joined or registered a team for any active hackathons.
           </p>
-          <div className="flex justify-center gap-4">
-            <button className="btn-primary-glow" onClick={() => setPage("hackathons")}>
-              Browse Directory
+          <div className="flex justify-center gap-3">
+            <button className="btn-primary-glow btn-sm" onClick={() => setPage("hackathons")}>
+              Browse Hackathons
             </button>
-            <button className="btn-secondary-glow" onClick={() => setShowJoinModal(true)}>
+            <button className="btn-secondary-glow btn-sm" onClick={() => setShowJoinModal(true)}>
               Join Team with Code
             </button>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Column 1 & 2: Team Roster & Project Submission Status */}
-          <div className="lg:col-span-2 space-y-6">
+        <div className="participant-main-grid">
+          {/* Column 1: Team Roster & Submissions */}
+          <div className="space-y-6">
             {/* Team Roster Card */}
-            <div className="card-glass-panel">
-              <div className="panel-header-row">
+            <div className="dash-card-box">
+              <div className="dash-card-header">
                 <div>
-                  <span className="text-xs font-mono text-cyan font-bold">HACKATHON: {activeTeam?.hackathon?.title}</span>
-                  <h3 className="panel-title text-xl font-bold text-white flex items-center gap-2 mt-1">
-                    {activeTeam?.name}
+                  <div className="text-2xs font-mono text-cyan font-bold uppercase tracking-wider mb-1">
+                    EVENT: {activeTeam?.hackathon?.title || "Hackathon Event"}
+                  </div>
+                  <div className="dash-card-title">
+                    <span>{activeTeam?.name}</span>
                     <StatusBadge status={activeTeam?.status || "pending"} />
-                  </h3>
-                </div>
-
-                <button className="btn-secondary-danger btn-sm" onClick={() => handleLeaveTeam(activeTeam._id)}>
-                  <LogOut className="btn-icon" /> Leave Team
-                </button>
-              </div>
-
-              {/* Invite Code Box */}
-              <div className="invite-code-card my-4 p-4 rounded-xl bg-gray-900/60 border border-gray-800 flex justify-between items-center">
-                <div>
-                  <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Team Secret Invite Code</div>
-                  <div className="font-mono text-xl font-extrabold text-cyan tracking-widest mt-1">
-                    {activeTeam?.inviteCode}
                   </div>
                 </div>
 
                 <button
-                  className="btn-secondary-glow btn-sm"
+                  className="btn-secondary-danger btn-sm flex items-center gap-1"
+                  onClick={() => handleLeaveTeam(activeTeam._id)}
+                >
+                  <LogOut className="w-3.5 h-3.5" /> Leave Team
+                </button>
+              </div>
+
+              {/* Secret Invite Code Row */}
+              <div className="invite-code-row">
+                <div>
+                  <div className="text-2xs font-bold text-gray-400 uppercase tracking-wider">Team Invite Code</div>
+                  <div className="invite-code-text">{activeTeam?.inviteCode}</div>
+                </div>
+
+                <button
+                  className="btn-secondary-glow btn-sm flex items-center gap-1.5"
                   onClick={() => {
                     navigator.clipboard.writeText(activeTeam?.inviteCode);
                     setCopied(true);
                     setTimeout(() => setCopied(false), 2000);
                   }}
                 >
-                  {copied ? <Check className="btn-icon text-emerald-400" /> : <Copy className="btn-icon" />}
-                  {copied ? "Copied Code!" : "Copy Code"}
+                  {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                  <span>{copied ? "Copied!" : "Copy Code"}</span>
                 </button>
               </div>
 
-              {/* Roster Members */}
-              <div className="mt-4">
-                <h4 className="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
+              {/* Roster Members List */}
+              <div>
+                <div className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <Users className="w-4 h-4 text-cyan" /> Team Roster ({activeTeam?.members?.length || 1} Members)
-                </h4>
+                </div>
 
-                <div className="members-list space-y-2">
+                <div className="member-list-column">
                   {activeTeam?.members?.map((m) => {
                     const isLeader = m._id === activeTeam?.leader?._id || m._id === activeTeam?.leader;
                     return (
-                      <div key={m._id} className="member-row flex items-center justify-between p-3 rounded-lg bg-gray-950/40 border border-gray-800/60">
+                      <div key={m._id} className="member-item-card">
                         <div className="flex items-center gap-3">
                           <img
-                            src={m.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${m.name}`}
+                            src={m.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(m.name)}`}
                             alt={m.name}
-                            className="w-8 h-8 rounded-full border border-cyan/40"
+                            className="member-avatar-img"
                           />
                           <div>
-                            <div className="font-bold text-sm text-white flex items-center gap-2">
-                              {m.name}
-                              {isLeader && <span className="badge-role-organizer text-2xs">TEAM LEADER</span>}
+                            <div className="member-name-text flex items-center gap-2">
+                              <span>{m.name}</span>
+                              {isLeader && (
+                                <span className="badge-role-organizer text-3xs">TEAM LEADER</span>
+                              )}
                             </div>
-                            <div className="text-xs text-gray-400">{m.email}</div>
+                            <div className="member-email-text">{m.email}</div>
                           </div>
                         </div>
                       </div>
@@ -285,75 +331,87 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
             </div>
 
             {/* Submission Section */}
-            <div className="card-glass-panel">
-              <div className="panel-header-row">
+            <div className="dash-card-box">
+              <div className="dash-card-header">
                 <div>
-                  <h3 className="panel-title"><Code className="title-icon text-cyan" /> Project Submission</h3>
-                  <p className="text-xs text-gray-400 mt-1">Submit your repository link, demo URL, presentation, and tech stack details.</p>
+                  <div className="dash-card-title">
+                    <Code className="w-5 h-5 text-cyan" /> Project Submission
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">Submit repository URL and live demo details.</p>
                 </div>
 
                 {isResultsPublished ? (
-                  <button className="btn-disabled-locked sm" disabled>
-                    <Lock className="btn-icon" /> Submissions Locked (Results Announced)
+                  <button className="btn-disabled-locked btn-sm" disabled>
+                    <Lock className="w-3.5 h-3.5" /> Submissions Locked
                   </button>
                 ) : (
-                  <button className="btn-primary-glow sm" onClick={() => setShowSubmitModal(true)}>
-                    <Send className="btn-icon" /> {activeSubmission ? "Edit Submission" : "Submit Project"}
+                  <button className="btn-primary-glow btn-sm flex items-center gap-1.5" onClick={() => setShowSubmitModal(true)}>
+                    <Send className="w-3.5 h-3.5" /> {activeSubmission ? "Edit Submission" : "Submit Project"}
                   </button>
                 )}
               </div>
 
               {activeSubmission ? (
-                <div className="submission-details-box mt-4 p-5 rounded-xl bg-gray-900/40 border border-gray-800">
-                  <div className="flex justify-between items-start mb-3">
-                    <h4 className="text-lg font-bold text-white">{activeSubmission.title}</h4>
+                <div className="p-4 rounded-xl bg-gray-950/60 border border-gray-800 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-base font-bold text-white">{activeSubmission.title}</h4>
                     <StatusBadge status={activeSubmission.status || "submitted"} />
                   </div>
 
-                  <p className="text-sm text-gray-300 mb-4">{activeSubmission.description}</p>
+                  {activeSubmission.description && (
+                    <p className="text-xs text-gray-300 leading-relaxed bg-gray-900/60 p-2.5 rounded border border-gray-800">
+                      {activeSubmission.description}
+                    </p>
+                  )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                  <div className="flex flex-wrap gap-3 text-xs font-mono pt-1">
                     {activeSubmission.githubRepo && (
-                      <a href={activeSubmission.githubRepo} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-cyan hover:underline p-2 rounded bg-gray-950/60 border border-gray-800">
-                        <Code className="w-4 h-4" /> GitHub Repository <ExternalLink className="w-3 h-3 ml-auto" />
+                      <a href={activeSubmission.githubRepo} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-cyan hover:underline p-2 rounded bg-gray-900 border border-gray-800">
+                        <Code className="w-3.5 h-3.5" /> GitHub Code <ExternalLink className="w-3 h-3 ml-1" />
                       </a>
                     )}
                     {activeSubmission.demoUrl && (
-                      <a href={activeSubmission.demoUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-emerald-400 hover:underline p-2 rounded bg-gray-950/60 border border-gray-800">
-                        <ExternalLink className="w-4 h-4" /> Live Web Application <ExternalLink className="w-3 h-3 ml-auto" />
+                      <a href={activeSubmission.demoUrl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-emerald-400 hover:underline p-2 rounded bg-gray-900 border border-gray-800">
+                        <ExternalLink className="w-3.5 h-3.5" /> Live Demo <ExternalLink className="w-3 h-3 ml-1" />
                       </a>
                     )}
                   </div>
                 </div>
               ) : (
-                <div className="empty-submission-placeholder text-center py-8 bg-gray-950/30 rounded-xl border border-dashed border-gray-800 my-4">
-                  <Clock className="w-10 h-10 text-gray-500 mx-auto mb-2" />
-                  <p className="text-sm text-gray-400">No project submitted yet for this hackathon.</p>
-                  <p className="text-xs text-gray-500 mt-1">Make sure to submit before the deadline!</p>
+                <div className="p-6 text-center bg-gray-950/40 rounded-xl border border-dashed border-gray-800">
+                  <Clock className="w-8 h-8 text-gray-500 mx-auto mb-2" />
+                  <p className="text-xs text-gray-400">No project submitted yet for this hackathon.</p>
+                  <button className="btn-primary-glow btn-sm mt-3 inline-flex items-center gap-1.5" onClick={() => setShowSubmitModal(true)}>
+                    <Send className="w-3.5 h-3.5" /> Submit Project Now
+                  </button>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Column 3: Event Overview & Results Panel */}
+          {/* Column 2: Event Overview & Results Card */}
           <div className="space-y-6">
-            <div className="card-glass-panel">
-              <h3 className="panel-title"><Award className="title-icon text-amber-400" /> Event Status & Results</h3>
+            <div className="dash-card-box">
+              <div className="dash-card-title mb-4">
+                <Award className="w-5 h-5 text-amber-400" /> Event Status & Results
+              </div>
 
-              {activeTeam?.hackathon?.resultsPublished ? (
-                <div className="published-results-banner p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 mt-4 text-center">
-                  <Award className="w-12 h-12 text-amber-400 mx-auto mb-2" />
-                  <h4 className="font-bold text-amber-300 text-lg">Winners Announced!</h4>
-                  <p className="text-xs text-gray-300 mt-1">Official scores and leaderboard rankings have been published by the organizer.</p>
+              {isResultsPublished ? (
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-center">
+                  <Award className="w-10 h-10 text-amber-400 mx-auto mb-2" />
+                  <h4 className="font-bold text-amber-300 text-base">Winners Announced!</h4>
+                  <p className="text-xs text-gray-300 mt-1">Official scores and leaderboard rankings published.</p>
                   <button className="btn-primary-glow btn-sm mt-3 w-full" onClick={() => setPage("leaderboard")}>
-                    View Winner Leaderboard
+                    View Leaderboard Rankings
                   </button>
                 </div>
               ) : (
-                <div className="pending-results-box p-4 rounded-xl bg-gray-900/50 border border-gray-800 mt-4 text-center">
-                  <Clock className="w-10 h-10 text-cyan mx-auto mb-2" />
-                  <h4 className="font-bold text-gray-200">Judging In Progress</h4>
-                  <p className="text-xs text-gray-400 mt-1">Results and leaderboard will be visible here once the organizer publishes final scores.</p>
+                <div className="p-4 rounded-xl bg-gray-950/60 border border-gray-800 text-center space-y-2 py-6">
+                  <Clock className="w-8 h-8 text-cyan mx-auto mb-1" />
+                  <h4 className="font-bold text-gray-200 text-sm">Evaluation In Progress</h4>
+                  <p className="text-2xs text-gray-400 leading-relaxed">
+                    Judges are evaluating submitted projects. Final scores will appear here once published.
+                  </p>
                 </div>
               )}
             </div>
@@ -364,7 +422,7 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
       {/* Join Team Modal */}
       <Modal isOpen={showJoinModal} onClose={() => !submitting && setShowJoinModal(false)} title="Join Team via Secret Code">
         <form onSubmit={handleJoinTeam} className="modal-form">
-          {joinMsg && <div className="auth-error-alert">{joinMsg}</div>}
+          {joinMsg && <div className="auth-error-alert mb-4">{joinMsg}</div>}
           <div className="form-group">
             <label>6-Character Team Secret Code</label>
             <input
@@ -393,8 +451,8 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
 
       {/* Submit / Edit Project Modal */}
       <Modal isOpen={showSubmitModal} onClose={() => !submitting && setShowSubmitModal(false)} title={activeSubmission ? "Edit Project Submission" : "Submit Hackathon Project"}>
-        <form onSubmit={handleSubmitProject} className="modal-form">
-          {subError && <div className="auth-error-alert">{subError}</div>}
+        <form onSubmit={handleSubmitProject} className="modal-form space-y-4">
+          {subError && <div className="auth-error-alert mb-4">{subError}</div>}
 
           <div className="form-group">
             <label>Project Title</label>

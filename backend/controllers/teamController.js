@@ -1,6 +1,8 @@
+const mongoose = require("mongoose");
 const Team = require("../models/Team");
 const User = require("../models/User");
 const Event = require("../models/Event");
+const Submission = require("../models/Submission");
 
 const generateInviteCode = () => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -16,6 +18,8 @@ const createTeam = async (req, res) => {
       return res.status(400).json({ message: "Team name is required" });
     }
 
+    const userIdStr = req.user._id.toString();
+
     if (hackathonId) {
       const hackathon = await Event.findById(hackathonId);
       if (!hackathon) return res.status(404).json({ message: "Hackathon not found" });
@@ -23,8 +27,14 @@ const createTeam = async (req, res) => {
         return res.status(400).json({ message: "Registration for this hackathon is closed" });
       }
 
-      // Check if user already in a team for this hackathon
-      const existingTeam = await Team.findOne({ hackathon: hackathonId, members: req.user._id });
+      // Check if user is already in a team for this hackathon
+      const allHackathonTeams = await Team.find({ hackathon: hackathonId }).lean();
+      const existingTeam = allHackathonTeams.find((t) => {
+        const isLeader = t.leader?.toString() === userIdStr;
+        const isMember = (t.members || []).some((m) => m?.toString() === userIdStr);
+        return isLeader || isMember;
+      });
+
       if (existingTeam) {
         return res.status(400).json({ message: "You are already in a team for this hackathon" });
       }
@@ -47,9 +57,16 @@ const createTeam = async (req, res) => {
     const populated = await Team.findById(team._id)
       .populate("leader", "name email avatar")
       .populate("members", "name email avatar")
-      .populate("hackathon", "title theme bannerImage");
+      .populate("hackathon", "title theme bannerImage registrationDeadline submissionDeadline status maxTeamSize mode venue")
+      .lean();
 
-    res.status(201).json(populated);
+    const sub = await Submission.findOne({ team: team._id }).lean();
+
+    res.status(201).json({
+      ...populated,
+      hackathon: populated.hackathon || { title: "Registered Hackathon", theme: "General" },
+      submission: sub || null,
+    });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
@@ -68,8 +85,16 @@ const joinTeam = async (req, res) => {
       return res.status(404).json({ message: "Invalid invite code" });
     }
 
+    const userIdStr = req.user._id.toString();
+
     if (team.hackathon) {
-      const existingTeam = await Team.findOne({ hackathon: team.hackathon._id, members: req.user._id });
+      const allHackathonTeams = await Team.find({ hackathon: team.hackathon._id }).lean();
+      const existingTeam = allHackathonTeams.find((t) => {
+        const isLeader = t.leader?.toString() === userIdStr;
+        const isMember = (t.members || []).some((m) => m?.toString() === userIdStr);
+        return isLeader || isMember;
+      });
+
       if (existingTeam) {
         return res.status(400).json({ message: "You are already in a team for this hackathon" });
       }
@@ -79,7 +104,7 @@ const joinTeam = async (req, res) => {
       }
     }
 
-    if (!team.members.includes(req.user._id)) {
+    if (!team.members.some((m) => m.toString() === userIdStr)) {
       team.members.push(req.user._id);
       await team.save();
     }
@@ -90,23 +115,72 @@ const joinTeam = async (req, res) => {
     const populated = await Team.findById(team._id)
       .populate("leader", "name email avatar")
       .populate("members", "name email avatar")
-      .populate("hackathon", "title theme bannerImage");
+      .populate("hackathon", "title theme bannerImage registrationDeadline submissionDeadline status maxTeamSize mode venue")
+      .lean();
 
-    res.json(populated);
+    const sub = await Submission.findOne({ team: team._id }).lean();
+
+    res.json({
+      ...populated,
+      hackathon: populated.hackathon || { title: "Registered Hackathon", theme: "General" },
+      submission: sub || null,
+    });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
 
-// @desc    Get user's active team
-// @route   GET /api/teams/my
+// @desc    Get user's active teams with submissions
+// @route   GET /api/teams/my & GET /api/teams/my-teams
 const getMyTeam = async (req, res) => {
   try {
-    const teams = await Team.find({ members: req.user._id })
+    const userIdStr = req.user._id.toString();
+    const userEmail = req.user.email ? req.user.email.toLowerCase().trim() : "";
+
+    const allTeams = await Team.find()
       .populate("leader", "name email avatar")
       .populate("members", "name email avatar")
-      .populate("hackathon", "title theme bannerImage registrationDeadline submissionDeadline status")
-      .populate("assignedJudges", "name email");
+      .populate("hackathon", "title theme bannerImage registrationDeadline submissionDeadline status maxTeamSize mode venue")
+      .populate("assignedJudges", "name email")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const userTeams = allTeams.filter((t) => {
+      const isLeader =
+        t.leader?._id?.toString() === userIdStr ||
+        t.leader?.toString() === userIdStr ||
+        (userEmail && t.leader?.email?.toLowerCase().trim() === userEmail);
+
+      const isMember = (t.members || []).some(
+        (m) =>
+          m?._id?.toString() === userIdStr ||
+          m?.toString() === userIdStr ||
+          (userEmail && m?.email?.toLowerCase().trim() === userEmail)
+      );
+
+      return isLeader || isMember;
+    });
+
+    const teams = await Promise.all(
+      userTeams.map(async (t) => {
+        let hackathonDoc = t.hackathon;
+        if (!hackathonDoc && t.hackathon) {
+          try {
+            hackathonDoc = await Event.findById(t.hackathon)
+              .select("title theme bannerImage registrationDeadline submissionDeadline status maxTeamSize mode venue")
+              .lean();
+          } catch (e) {}
+        }
+
+        const sub = await Submission.findOne({ team: t._id }).lean();
+
+        return {
+          ...t,
+          hackathon: hackathonDoc || { title: "Registered Hackathon", theme: "General" },
+          submission: sub || null,
+        };
+      })
+    );
 
     res.json(teams);
   } catch (error) {

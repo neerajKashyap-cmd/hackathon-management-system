@@ -23,6 +23,7 @@ export default function HackathonDetail({ hackathonId, setPage, onOpenAuth }) {
   const [hackathon, setHackathon] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
   // Registration Modal State
@@ -54,17 +55,21 @@ export default function HackathonDetail({ hackathonId, setPage, onOpenAuth }) {
 
   const handleCreateTeamRegister = async (e) => {
     e.preventDefault();
+    if (submitting) return;
+
     setRegError("");
     setRegSuccess("");
 
-    if (!teamName) {
+    if (!teamName.trim()) {
       setRegError("Please enter a team name.");
       return;
     }
 
+    setSubmitting(true);
+
     try {
       const res = await api.post("/teams", {
-        name: teamName,
+        name: teamName.trim(),
         hackathonId: hackathon._id,
       });
 
@@ -72,9 +77,11 @@ export default function HackathonDetail({ hackathonId, setPage, onOpenAuth }) {
       setTimeout(() => {
         setShowRegModal(false);
         setPage("dashboard");
-      }, 2000);
+      }, 1500);
     } catch (err) {
       setRegError(err.response?.data?.message || "Failed to register team.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -147,7 +154,7 @@ export default function HackathonDetail({ hackathonId, setPage, onOpenAuth }) {
               user.role === "participant" ? (
                 <button
                   className="btn-primary-glow lg"
-                  disabled={!hackathon.registrationOpen}
+                  disabled={!hackathon.registrationOpen || submitting}
                   onClick={() => setShowRegModal(true)}
                 >
                   <Plus className="btn-icon" /> Register My Team
@@ -166,26 +173,14 @@ export default function HackathonDetail({ hackathonId, setPage, onOpenAuth }) {
         </div>
       </div>
 
-      {/* Tabs Bar */}
+      {/* Detail Navigation Tabs */}
       <div className="detail-tabs-bar">
-        <div className="section-container detail-tabs-flex">
+        <div className="section-container flex gap-4">
           <button
             className={`detail-tab ${activeTab === "overview" ? "active" : ""}`}
             onClick={() => setActiveTab("overview")}
           >
-            Overview & Description
-          </button>
-          <button
-            className={`detail-tab ${activeTab === "rules" ? "active" : ""}`}
-            onClick={() => setActiveTab("rules")}
-          >
-            Rules & Schedule
-          </button>
-          <button
-            className={`detail-tab ${activeTab === "criteria" ? "active" : ""}`}
-            onClick={() => setActiveTab("criteria")}
-          >
-            Judging Criteria
+            Overview & Rules
           </button>
           <button
             className={`detail-tab ${activeTab === "leaderboard" ? "active" : ""}`}
@@ -196,95 +191,67 @@ export default function HackathonDetail({ hackathonId, setPage, onOpenAuth }) {
         </div>
       </div>
 
-      {/* Tab Content */}
-      <div className="section-container detail-content-container">
-        {activeTab === "overview" && (
-          <div className="tab-pane">
-            <h3 className="pane-title">About the Hackathon</h3>
-            <p className="pane-paragraph">{hackathon.description}</p>
-
-            <div className="organizer-info-card">
-              <img
-                src={hackathon.organizer?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=Org`}
-                alt="Organizer"
-                className="org-avatar"
-              />
-              <div>
-                <span className="org-label">Hosted & Managed By</span>
-                <h4 className="org-name">{hackathon.organizer?.name || "Official Hackathon Director"}</h4>
+      {/* Main Tab Body */}
+      <div className="section-container py-10">
+        {activeTab === "overview" ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="glass-panel p-6">
+                <h3 className="section-subtitle mb-4">About this Hackathon</h3>
+                <p className="whitespace-pre-line text-gray-300 leading-relaxed">{hackathon.description}</p>
               </div>
-            </div>
-          </div>
-        )}
 
-        {activeTab === "rules" && (
-          <div className="tab-pane">
-            <h3 className="pane-title">Rules & Conduct</h3>
-            <pre className="rules-pre">{hackathon.rules || "No custom rules posted yet."}</pre>
-
-            <h3 className="pane-title mt-8">Deadlines Timeline</h3>
-            <div className="timeline-grid">
-              <div className="timeline-card">
-                <Clock className="timeline-icon" />
-                <div>
-                  <span className="timeline-label">Registration Deadline</span>
-                  <span className="timeline-val">{new Date(hackathon.registrationDeadline).toLocaleString()}</span>
+              {hackathon.rules && (
+                <div className="glass-panel p-6">
+                  <h3 className="section-subtitle mb-4">Rules & Guidelines</h3>
+                  <p className="whitespace-pre-line text-gray-300 leading-relaxed">{hackathon.rules}</p>
                 </div>
-              </div>
-              <div className="timeline-card">
-                <Clock className="timeline-icon text-cyan" />
-                <div>
-                  <span className="timeline-label">Submission Deadline</span>
-                  <span className="timeline-val">{new Date(hackathon.submissionDeadline).toLocaleString()}</span>
-                </div>
-              </div>
+              )}
             </div>
-          </div>
-        )}
 
-        {activeTab === "criteria" && (
-          <div className="tab-pane">
-            <h3 className="pane-title">7-Criteria Evaluation Scorecard</h3>
-            <p className="pane-paragraph">
-              All submitted projects will be reviewed by assigned expert judges across the following standardized weighted dimensions:
-            </p>
-
-            <div className="criteria-grid">
-              {(hackathon.judgingCriteria || []).map((crit, i) => (
-                <div key={i} className="criteria-card">
-                  <div className="criteria-header">
-                    <span className="crit-name">{crit.name}</span>
-                    <span className="crit-max">{crit.maxScore} Marks</span>
+            <div className="space-y-6">
+              <div className="glass-panel p-6">
+                <h4 className="font-bold text-white mb-4">Important Schedule</h4>
+                <div className="space-y-4 text-sm">
+                  <div className="flex items-center gap-3">
+                    <Calendar className="w-4 h-4 text-cyan" />
+                    <div>
+                      <div className="text-gray-400 text-xs">Event Start</div>
+                      <div className="text-white font-semibold">
+                        {new Date(hackathon.startDate).toLocaleDateString()}
+                      </div>
+                    </div>
                   </div>
-                  <div className="crit-progress-bar">
-                    <div className="progress-fill" style={{ width: "100%" }}></div>
+
+                  <div className="flex items-center gap-3">
+                    <Clock className="w-4 h-4 text-amber-400" />
+                    <div>
+                      <div className="text-gray-400 text-xs">Submission Deadline</div>
+                      <div className="text-white font-semibold">
+                        {new Date(hackathon.submissionDeadline).toLocaleDateString()}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
           </div>
-        )}
-
-        {activeTab === "leaderboard" && (
-          <div className="tab-pane">
-            <h3 className="pane-title">Live Hackathon Leaderboard</h3>
-
+        ) : (
+          /* Leaderboard Tab */
+          <div className="glass-panel p-6">
+            <h3 className="section-subtitle mb-4">Official Rankings</h3>
             {leaderboard.length === 0 ? (
-              <div className="empty-state-card">
-                <Trophy className="empty-icon" />
-                <h4>No Scores Published Yet</h4>
-                <p>Judges are currently reviewing team submissions.</p>
-              </div>
+              <p className="text-gray-400">Leaderboard has not been published for this hackathon yet.</p>
             ) : (
-              <div className="leaderboard-table-wrapper">
+              <div className="table-responsive">
                 <table className="custom-table">
                   <thead>
                     <tr>
                       <th>Rank</th>
                       <th>Team Name</th>
-                      <th>Submission Project</th>
+                      <th>Project Title</th>
                       <th>Tech Stack</th>
-                      <th>Avg Total Score</th>
+                      <th>Total Score</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -316,7 +283,7 @@ export default function HackathonDetail({ hackathonId, setPage, onOpenAuth }) {
       </div>
 
       {/* Registration Modal */}
-      <Modal isOpen={showRegModal} onClose={() => setShowRegModal(false)} title="Register Team for Hackathon">
+      <Modal isOpen={showRegModal} onClose={() => !submitting && setShowRegModal(false)} title="Register Team for Hackathon">
         <form onSubmit={handleCreateTeamRegister} className="modal-form">
           <div className="form-group">
             <label>Team Name</label>
@@ -326,14 +293,22 @@ export default function HackathonDetail({ hackathonId, setPage, onOpenAuth }) {
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
               required
+              disabled={submitting}
             />
           </div>
 
           {regError && <div className="auth-error-alert">{regError}</div>}
           {regSuccess && <div className="auth-success-alert">{regSuccess}</div>}
 
-          <button type="submit" className="btn-primary-glow w-full mt-4">
-            Create Team & Register
+          <button type="submit" className="btn-primary-glow w-full mt-4 flex items-center justify-center gap-2" disabled={submitting}>
+            {submitting ? (
+              <>
+                <span className="btn-spinner-sm"></span>
+                <span>Creating Team...</span>
+              </>
+            ) : (
+              <span>Confirm & Create Team</span>
+            )}
           </button>
         </form>
       </Modal>

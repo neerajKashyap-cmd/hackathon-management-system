@@ -16,6 +16,7 @@ router.use(protect);
 router.post("/", createTeam);
 router.post("/join", joinTeam);
 router.get("/my", getMyTeam);
+router.get("/my-teams", getMyTeam);
 router.post("/:id/remove-member", removeMember);
 router.post("/:id/transfer-leadership", transferLeadership);
 router.post("/:id/leave", leaveTeam);
