@@ -5,8 +5,13 @@ const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem("hms_user");
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem("hms_user");
+      return saved && saved !== "undefined" ? JSON.parse(saved) : null;
+    } catch (e) {
+      localStorage.removeItem("hms_user");
+      return null;
+    }
   });
   const [loading, setLoading] = useState(false);
 
@@ -32,15 +37,6 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const res = await api.post("/auth/login", { email, password });
-      if (res.data.requiresOtp) {
-        return {
-          success: true,
-          requiresOtp: true,
-          email: res.data.email,
-          otpCode: res.data.otpCode,
-          message: res.data.message,
-        };
-      }
       setUser(res.data);
       localStorage.setItem("hms_user", JSON.stringify(res.data));
       return { success: true, data: res.data };
@@ -54,19 +50,27 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const loginWithGoogle = async (googlePayload) => {
+    setLoading(true);
+    try {
+      const res = await api.post("/auth/google", googlePayload);
+      setUser(res.data);
+      localStorage.setItem("hms_user", JSON.stringify(res.data));
+      return { success: true, data: res.data };
+    } catch (err) {
+      return {
+        success: false,
+        message: err.response?.data?.message || "Google Authentication failed",
+      };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const register = async (formData) => {
     setLoading(true);
     try {
       const res = await api.post("/auth/register", formData);
-      if (res.data.requiresOtp) {
-        return {
-          success: true,
-          requiresOtp: true,
-          email: res.data.email,
-          otpCode: res.data.otpCode,
-          message: res.data.message,
-        };
-      }
       setUser(res.data);
       localStorage.setItem("hms_user", JSON.stringify(res.data));
       return { success: true, data: res.data };
@@ -102,7 +106,6 @@ export function AuthProvider({ children }) {
       const res = await api.post("/auth/resend-otp", { email });
       return {
         success: true,
-        otpCode: res.data.otpCode,
         message: res.data.message,
       };
     } catch (err) {
@@ -152,6 +155,7 @@ export function AuthProvider({ children }) {
         user,
         loading,
         login,
+        loginWithGoogle,
         register,
         verifyOTP,
         resendOTP,

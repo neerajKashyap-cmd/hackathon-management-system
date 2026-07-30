@@ -30,19 +30,19 @@ function AppContent() {
 
   // Automatically sync active page route when logged-in user changes role or logs out
   useEffect(() => {
-    if (user) {
-      if (page === "home" || page === "dashboard" || page === "organizer" || page === "judge" || page === "admin") {
-        if (user.role === "admin") setPage("admin");
-        else if (user.role === "organizer") setPage("organizer");
-        else if (user.role === "judge") setPage("judge");
-        else setPage("dashboard");
+    if (user && user.role) {
+      if (["home", "dashboard", "organizer", "judge", "admin"].includes(page)) {
+        if (user.role === "admin" && page !== "admin") setPage("admin");
+        else if (user.role === "organizer" && page !== "organizer") setPage("organizer");
+        else if (user.role === "judge" && page !== "judge") setPage("judge");
+        else if (user.role === "participant" && page !== "dashboard") setPage("dashboard");
       }
-    } else {
+    } else if (!user) {
       if (["dashboard", "organizer", "judge", "admin", "profile"].includes(page)) {
         setPage("home");
       }
     }
-  }, [user]);
+  }, [user, page]);
 
   const handleOpenAuth = () => {
     setShowAuthModal(true);

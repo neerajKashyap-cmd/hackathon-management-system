@@ -25,6 +25,7 @@ import {
 export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
   const [myHackathons, setMyHackathons] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   // Selected Hackathon for Registrations / Winners Management
   const [activeHackathon, setActiveHackathon] = useState(null);
@@ -126,6 +127,9 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
 
   const handleSaveHackathon = async (e) => {
     e.preventDefault();
+    if (submitting) return;
+
+    setSubmitting(true);
     setModalErr("");
     try {
       if (editingHackathon) {
@@ -138,6 +142,8 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
       fetchMyHackathons();
     } catch (err) {
       setModalErr(err.response?.data?.message || err.message || "Error saving hackathon");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -171,7 +177,9 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
 
   const handleAssignJudgeToTeam = async (e) => {
     e.preventDefault();
-    if (!showAssignJudgeModal || !selectedTeamJudgeId) return;
+    if (!showAssignJudgeModal || !selectedTeamJudgeId || submitting) return;
+
+    setSubmitting(true);
     try {
       await api.post(`/organizer/teams/${showAssignJudgeModal}/assign-judge`, { judgeId: selectedTeamJudgeId });
       setShowAssignJudgeModal(null);
@@ -179,13 +187,17 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
       if (activeHackathon) loadRegistrations(activeHackathon);
     } catch (err) {
       alert(err.response?.data?.message || "Error assigning judge");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   // Hackathon-Level Judge Operations (Assign / Delete)
   const handleAssignJudgeToHackathon = async (e) => {
     e.preventDefault();
-    if (!managingJudgesHackathon || !newJudgeIdToAssign) return;
+    if (!managingJudgesHackathon || !newJudgeIdToAssign || submitting) return;
+
+    setSubmitting(true);
     try {
       const res = await api.post(`/organizer/hackathons/${managingJudgesHackathon._id}/judges`, {
         judgeId: newJudgeIdToAssign,
@@ -195,6 +207,8 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
       fetchMyHackathons();
     } catch (err) {
       alert(err.response?.data?.message || "Error assigning judge to hackathon");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -211,7 +225,9 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
   };
 
   const handlePublishResults = async () => {
-    if (!activeHackathon) return;
+    if (!activeHackathon || submitting) return;
+
+    setSubmitting(true);
     try {
       const res = await api.post(`/organizer/hackathons/${activeHackathon._id}/publish-results`, {
         winners: registrations.slice(0, 3).map((t, idx) => ({
@@ -225,6 +241,8 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
       fetchMyHackathons();
     } catch (err) {
       alert(err.response?.data?.message || "Error publishing results");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -391,8 +409,18 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
                   <Check className="btn-icon" /> Results Published & Winners Announced
                 </button>
               ) : (
-                <button className="btn-hero-primary sm" onClick={handlePublishResults}>
-                  <Award className="btn-icon" /> Publish Results & Announce Winners
+                <button className="btn-hero-primary sm flex items-center gap-2" onClick={handlePublishResults} disabled={submitting}>
+                  {submitting ? (
+                    <>
+                      <span className="btn-spinner-sm"></span>
+                      <span>Publishing Results...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Award className="btn-icon" />
+                      <span>Publish Results & Announce Winners</span>
+                    </>
+                  )}
                 </button>
               )}
             </div>
@@ -496,28 +524,28 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
       )}
 
       {/* Create / Edit Hackathon Modal */}
-      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title={editingHackathon ? "Edit Hackathon" : "Create New Hackathon"}>
+      <Modal isOpen={showCreateModal} onClose={() => !submitting && setShowCreateModal(false)} title={editingHackathon ? "Edit Hackathon" : "Create New Hackathon"}>
         <form onSubmit={handleSaveHackathon} className="modal-form">
           {modalErr && <div className="auth-error-alert">{modalErr}</div>}
 
           <div className="form-group">
             <label>Hackathon Title</label>
-            <input type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+            <input type="text" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required disabled={submitting} />
           </div>
 
           <div className="form-group">
             <label>Tagline</label>
-            <input type="text" value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} placeholder="Short catchphrase..." />
+            <input type="text" value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} placeholder="Short catchphrase..." disabled={submitting} />
           </div>
 
           <div className="form-group">
             <label>Theme</label>
-            <input type="text" value={form.theme} onChange={(e) => setForm({ ...form, theme: e.target.value })} placeholder="AI, Web3, Full Stack..." required />
+            <input type="text" value={form.theme} onChange={(e) => setForm({ ...form, theme: e.target.value })} placeholder="AI, Web3, Full Stack..." required disabled={submitting} />
           </div>
 
           <div className="form-group">
             <label>Description</label>
-            <textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} required></textarea>
+            <textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} required disabled={submitting}></textarea>
           </div>
 
           <div className="form-group">
@@ -527,6 +555,7 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
               value={form.bannerImage}
               onChange={(e) => setForm({ ...form, bannerImage: e.target.value })}
               placeholder="Paste Image URL (https://...)..."
+              disabled={submitting}
             />
             <div className="flex items-center gap-2 mt-2">
               <Upload className="icon-inline text-cyan" />
@@ -535,6 +564,7 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
                 accept="image/*"
                 onChange={handleImageFileSelect}
                 className="text-xs text-gray-400"
+                disabled={submitting}
               />
             </div>
             <p className="text-xs text-gray-400 mt-1">If left empty, a high-tech banner image will be automatically assigned.</p>
@@ -543,30 +573,37 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
           <div className="form-row">
             <div className="form-group">
               <label>Format Mode</label>
-              <select value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}>
+              <select value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })} disabled={submitting}>
                 <option value="Online">Online</option>
                 <option value="Offline">Offline</option>
               </select>
             </div>
             <div className="form-group">
               <label>Prize Pool</label>
-              <input type="text" value={form.prizePool} onChange={(e) => setForm({ ...form, prizePool: e.target.value })} />
+              <input type="text" value={form.prizePool} onChange={(e) => setForm({ ...form, prizePool: e.target.value })} disabled={submitting} />
             </div>
           </div>
 
           <div className="form-row">
             <div className="form-group">
               <label>Registration Deadline</label>
-              <input type="datetime-local" value={form.registrationDeadline} onChange={(e) => setForm({ ...form, registrationDeadline: e.target.value })} required />
+              <input type="datetime-local" value={form.registrationDeadline} onChange={(e) => setForm({ ...form, registrationDeadline: e.target.value })} required disabled={submitting} />
             </div>
             <div className="form-group">
               <label>Submission Deadline</label>
-              <input type="datetime-local" value={form.submissionDeadline} onChange={(e) => setForm({ ...form, submissionDeadline: e.target.value })} required />
+              <input type="datetime-local" value={form.submissionDeadline} onChange={(e) => setForm({ ...form, submissionDeadline: e.target.value })} required disabled={submitting} />
             </div>
           </div>
 
-          <button type="submit" className="btn-primary-glow w-full mt-4">
-            {editingHackathon ? "Save Changes" : "Create & Launch Hackathon"}
+          <button type="submit" className="btn-primary-glow w-full mt-4 flex items-center justify-center gap-2" disabled={submitting}>
+            {submitting ? (
+              <>
+                <span className="btn-spinner-sm"></span>
+                <span>{editingHackathon ? "Saving Changes..." : "Launching Hackathon..."}</span>
+              </>
+            ) : (
+              <span>{editingHackathon ? "Save Changes" : "Create & Launch Hackathon"}</span>
+            )}
           </button>
         </form>
       </Modal>
@@ -626,6 +663,7 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
                 onChange={(e) => setNewJudgeIdToAssign(e.target.value)}
                 className="form-select"
                 required
+                disabled={submitting}
               >
                 <option value="">-- Choose Judge to Assign --</option>
                 {availableJudges.map((j) => (
@@ -636,8 +674,18 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
               </select>
             </div>
 
-            <button type="submit" className="btn-primary-glow w-full mt-3">
-              <UserPlus className="btn-icon" /> Assign Judge to Hackathon
+            <button type="submit" className="btn-primary-glow w-full mt-3 flex items-center justify-center gap-2" disabled={submitting}>
+              {submitting ? (
+                <>
+                  <span className="btn-spinner-sm"></span>
+                  <span>Assigning Judge...</span>
+                </>
+              ) : (
+                <>
+                  <UserPlus className="btn-icon" />
+                  <span>Assign Judge to Hackathon</span>
+                </>
+              )}
             </button>
           </form>
         </div>
@@ -648,7 +696,7 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
         <form onSubmit={handleAssignJudgeToTeam} className="modal-form">
           <div className="form-group">
             <label>Select Expert Judge</label>
-            <select value={selectedTeamJudgeId} onChange={(e) => setSelectedTeamJudgeId(e.target.value)} className="form-select" required>
+            <select value={selectedTeamJudgeId} onChange={(e) => setSelectedTeamJudgeId(e.target.value)} className="form-select" required disabled={submitting}>
               <option value="">-- Choose Judge --</option>
               {availableJudges.map((j) => (
                 <option key={j._id} value={j._id}>
@@ -657,8 +705,15 @@ export default function OrganizerDashboard({ setPage, setSelectedHackathon }) {
               ))}
             </select>
           </div>
-          <button type="submit" className="btn-primary-glow w-full mt-4">
-            Confirm Judge Assignment
+          <button type="submit" className="btn-primary-glow w-full mt-4 flex items-center justify-center gap-2" disabled={submitting}>
+            {submitting ? (
+              <>
+                <span className="btn-spinner-sm"></span>
+                <span>Confirming Assignment...</span>
+              </>
+            ) : (
+              <span>Confirm Judge Assignment</span>
+            )}
           </button>
         </form>
       </Modal>

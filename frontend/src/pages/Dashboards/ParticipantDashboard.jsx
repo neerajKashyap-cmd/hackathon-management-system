@@ -1,40 +1,38 @@
 import { useState, useEffect } from "react";
 import api from "../../services/api";
-import { useAuth } from "../../context/AuthContext";
 import StatusBadge from "../../components/StatusBadge";
 import Modal from "../../components/Modal";
-import CertificateModal from "../../components/CertificateModal";
 import {
   Users,
   Code,
-  Trophy,
-  Plus,
+  Send,
+  UserPlus,
   Key,
-  LogOut,
-  Trash2,
-  Edit,
-  ExternalLink,
-  GitBranch,
-  Award,
+  Copy,
+  Check,
   CheckCircle,
-  FileCheck,
+  Clock,
+  LogOut,
+  Sparkles,
+  ExternalLink,
+  ShieldAlert,
+  Award,
+  Video,
+  FileText,
   Lock,
-  Layers,
 } from "lucide-react";
 
 export default function ParticipantDashboard({ setPage, setSelectedHackathon }) {
-  const { user } = useAuth();
   const [teams, setTeams] = useState([]);
-  const [submissions, setSubmissions] = useState([]);
-  const [selectedTeamId, setSelectedTeamId] = useState("");
+  const [selectedTeamId, setSelectedTeamId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Join Team Modal
+  // Modals
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [inviteCode, setInviteCode] = useState("");
   const [joinMsg, setJoinMsg] = useState("");
 
-  // Submit Project Form Modal
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [subForm, setSubForm] = useState({
     title: "",
@@ -49,8 +47,7 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
   });
   const [subError, setSubError] = useState("");
 
-  // Certificate Modal
-  const [showCertModal, setShowCertModal] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     fetchParticipantData();
@@ -58,33 +55,20 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
 
   const fetchParticipantData = () => {
     setLoading(true);
-    // Load my teams & my submissions
-    Promise.all([api.get("/teams/my"), api.get("/submissions/my")])
-      .then(([teamsRes, subsRes]) => {
-        setTeams(teamsRes.data || []);
-        const loadedSubmissions = Array.isArray(subsRes.data)
-          ? subsRes.data
-          : subsRes.data
-          ? [subsRes.data]
-          : [];
-        setSubmissions(loadedSubmissions);
-
-        if (teamsRes.data && teamsRes.data.length > 0) {
-          setSelectedTeamId(teamsRes.data[0]._id);
+    api
+      .get("/teams/my-teams")
+      .then((res) => {
+        setTeams(res.data);
+        if (res.data.length > 0 && !selectedTeamId) {
+          setSelectedTeamId(res.data[0]._id);
         }
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   };
 
-  const activeTeam = teams.find((t) => t._id === selectedTeamId) || teams[0] || null;
-  const activeSubmission = activeTeam
-    ? submissions.find(
-        (s) =>
-          (typeof s.team === "string" ? s.team : s.team?._id) === activeTeam._id ||
-          (s.hackathon && s.hackathon._id === activeTeam.hackathon?._id)
-      ) || null
-    : null;
+  const activeTeam = teams.find((t) => t._id === selectedTeamId) || teams[0];
+  const activeSubmission = activeTeam?.submission;
 
   useEffect(() => {
     if (activeSubmission) {
@@ -93,9 +77,11 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
         problemStatement: activeSubmission.problemStatement || "",
         solution: activeSubmission.solution || "",
         description: activeSubmission.description || "",
-        repoLink: activeSubmission.repoLink || "",
-        demoLink: activeSubmission.demoLink || "",
-        techStack: (activeSubmission.techStack || []).join(", "),
+        repoLink: activeSubmission.githubRepo || "",
+        demoLink: activeSubmission.demoUrl || "",
+        techStack: Array.isArray(activeSubmission.techStack)
+          ? activeSubmission.techStack.join(", ")
+          : activeSubmission.techStack || "",
         demoVideoLink: activeSubmission.demoVideoLink || "",
         presentationPdf: activeSubmission.presentationPdf || "",
       });
@@ -116,6 +102,9 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
 
   const handleJoinTeam = async (e) => {
     e.preventDefault();
+    if (submitting) return;
+
+    setSubmitting(true);
     setJoinMsg("");
     try {
       await api.post("/teams/join", { inviteCode });
@@ -124,13 +113,17 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
       fetchParticipantData();
     } catch (err) {
       setJoinMsg(err.response?.data?.message || "Failed to join team.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleSubmitProject = async (e) => {
     e.preventDefault();
+    if (submitting || !activeTeam) return;
+
+    setSubmitting(true);
     setSubError("");
-    if (!activeTeam) return;
     try {
       await api.post("/submissions", {
         teamId: activeTeam._id,
@@ -140,6 +133,8 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
       fetchParticipantData();
     } catch (err) {
       setSubError(err.response?.data?.message || "Error submitting project.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -179,182 +174,186 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
       {/* Multi-Hackathon Workspace Switcher Banner */}
       {teams.length > 1 && (
         <div className="workspace-switcher-banner mb-6">
-          <div className="switcher-header">
-            <Layers className="switcher-icon" />
-            <span className="switcher-title">SELECT HACKATHON WORKSPACE ({teams.length} REGISTERED)</span>
-            <span className="text-xs text-gray-400 ml-2">— Click a button below to manage that team & project submission:</span>
-          </div>
-
-          <div className="workspace-tabs-row">
-            {teams.map((t) => {
-              const isSelected = selectedTeamId === t._id;
-              return (
-                <button
-                  key={t._id}
-                  className={`workspace-tab-btn ${isSelected ? "active" : ""}`}
-                  onClick={() => setSelectedTeamId(t._id)}
-                  title={`Switch workspace to ${t.hackathon?.title || t.name}`}
-                >
-                  <Trophy className="tab-trophy-icon" />
-                  <div className="tab-text-box">
-                    <span className="tab-hackathon-name">{t.hackathon?.title || "Hackathon"}</span>
-                    <span className="tab-team-name">Team: {t.name}</span>
-                  </div>
-                </button>
-              );
-            })}
+          <span className="switcher-label">Active Workspace:</span>
+          <div className="workspace-tabs-scroll">
+            {teams.map((t) => (
+              <button
+                key={t._id}
+                className={`workspace-tab-btn ${t._id === activeTeam?._id ? "active" : ""}`}
+                onClick={() => setSelectedTeamId(t._id)}
+              >
+                <span className="tab-team-name">{t.name}</span>
+                <span className="tab-hackathon-name">({t.hackathon?.title})</span>
+              </button>
+            ))}
           </div>
         </div>
       )}
 
       {loading ? (
-        <div className="loading-spinner-container">
+        <div className="loading-spinner-container py-12">
           <div className="spinner"></div>
         </div>
+      ) : teams.length === 0 ? (
+        <div className="empty-state-card text-center py-12">
+          <Code className="empty-icon mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-white mb-2">You are not registered in any hackathon teams yet.</h3>
+          <p className="text-gray-400 mb-6 max-w-md mx-auto">
+            Browse live hackathons to register a new team or enter a 6-character team invite code provided by your teammate.
+          </p>
+          <div className="flex justify-center gap-4">
+            <button className="btn-primary-glow" onClick={() => setPage("hackathons")}>
+              Browse Directory
+            </button>
+            <button className="btn-secondary-glow" onClick={() => setShowJoinModal(true)}>
+              Join Team with Code
+            </button>
+          </div>
+        </div>
       ) : (
-        <div className="dashboard-grid-layout">
-          {/* Left Column: Team Status Card */}
-          <div className="dashboard-col">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Column 1 & 2: Team Roster & Project Submission Status */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Team Roster Card */}
             <div className="card-glass-panel">
-              <h3 className="panel-title"><Users className="title-icon" /> Active Team Details</h3>
+              <div className="panel-header-row">
+                <div>
+                  <span className="text-xs font-mono text-cyan font-bold">HACKATHON: {activeTeam?.hackathon?.title}</span>
+                  <h3 className="panel-title text-xl font-bold text-white flex items-center gap-2 mt-1">
+                    {activeTeam?.name}
+                    <StatusBadge status={activeTeam?.status || "pending"} />
+                  </h3>
+                </div>
 
-              {!activeTeam ? (
-                <div className="empty-state-card py-8">
-                  <Users className="empty-icon" />
-                  <h4>Not in a Team Yet</h4>
-                  <p>Browse hackathons to register a new team or join an existing team via code.</p>
-                  <button className="btn-primary-glow sm mt-4" onClick={() => setPage("hackathons")}>
-                    Browse Hackathons
+                <button className="btn-secondary-danger btn-sm" onClick={() => handleLeaveTeam(activeTeam._id)}>
+                  <LogOut className="btn-icon" /> Leave Team
+                </button>
+              </div>
+
+              {/* Invite Code Box */}
+              <div className="invite-code-card my-4 p-4 rounded-xl bg-gray-900/60 border border-gray-800 flex justify-between items-center">
+                <div>
+                  <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Team Secret Invite Code</div>
+                  <div className="font-mono text-xl font-extrabold text-cyan tracking-widest mt-1">
+                    {activeTeam?.inviteCode}
+                  </div>
+                </div>
+
+                <button
+                  className="btn-secondary-glow btn-sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(activeTeam?.inviteCode);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                >
+                  {copied ? <Check className="btn-icon text-emerald-400" /> : <Copy className="btn-icon" />}
+                  {copied ? "Copied Code!" : "Copy Code"}
+                </button>
+              </div>
+
+              {/* Roster Members */}
+              <div className="mt-4">
+                <h4 className="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-cyan" /> Team Roster ({activeTeam?.members?.length || 1} Members)
+                </h4>
+
+                <div className="members-list space-y-2">
+                  {activeTeam?.members?.map((m) => {
+                    const isLeader = m._id === activeTeam?.leader?._id || m._id === activeTeam?.leader;
+                    return (
+                      <div key={m._id} className="member-row flex items-center justify-between p-3 rounded-lg bg-gray-950/40 border border-gray-800/60">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={m.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${m.name}`}
+                            alt={m.name}
+                            className="w-8 h-8 rounded-full border border-cyan/40"
+                          />
+                          <div>
+                            <div className="font-bold text-sm text-white flex items-center gap-2">
+                              {m.name}
+                              {isLeader && <span className="badge-role-organizer text-2xs">TEAM LEADER</span>}
+                            </div>
+                            <div className="text-xs text-gray-400">{m.email}</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Submission Section */}
+            <div className="card-glass-panel">
+              <div className="panel-header-row">
+                <div>
+                  <h3 className="panel-title"><Code className="title-icon text-cyan" /> Project Submission</h3>
+                  <p className="text-xs text-gray-400 mt-1">Submit your repository link, demo URL, presentation, and tech stack details.</p>
+                </div>
+
+                {isResultsPublished ? (
+                  <button className="btn-disabled-locked sm" disabled>
+                    <Lock className="btn-icon" /> Submissions Locked (Results Announced)
                   </button>
+                ) : (
+                  <button className="btn-primary-glow sm" onClick={() => setShowSubmitModal(true)}>
+                    <Send className="btn-icon" /> {activeSubmission ? "Edit Submission" : "Submit Project"}
+                  </button>
+                )}
+              </div>
+
+              {activeSubmission ? (
+                <div className="submission-details-box mt-4 p-5 rounded-xl bg-gray-900/40 border border-gray-800">
+                  <div className="flex justify-between items-start mb-3">
+                    <h4 className="text-lg font-bold text-white">{activeSubmission.title}</h4>
+                    <StatusBadge status={activeSubmission.status || "submitted"} />
+                  </div>
+
+                  <p className="text-sm text-gray-300 mb-4">{activeSubmission.description}</p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                    {activeSubmission.githubRepo && (
+                      <a href={activeSubmission.githubRepo} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-cyan hover:underline p-2 rounded bg-gray-950/60 border border-gray-800">
+                        <Code className="w-4 h-4" /> GitHub Repository <ExternalLink className="w-3 h-3 ml-auto" />
+                      </a>
+                    )}
+                    {activeSubmission.demoUrl && (
+                      <a href={activeSubmission.demoUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-emerald-400 hover:underline p-2 rounded bg-gray-950/60 border border-gray-800">
+                        <ExternalLink className="w-4 h-4" /> Live Web Application <ExternalLink className="w-3 h-3 ml-auto" />
+                      </a>
+                    )}
+                  </div>
                 </div>
               ) : (
-                <div className="team-details-box">
-                  <div className="team-header-row">
-                    <div>
-                      <h2 className="team-name-lg">{activeTeam.name}</h2>
-                      <span className="hackathon-tag-text">
-                        Registered for: <strong>{activeTeam.hackathon?.title || "Hackathon"}</strong>
-                      </span>
-                    </div>
-                    <StatusBadge status={activeTeam.status || "pending"} />
-                  </div>
-
-                  {/* Invite Code Box */}
-                  <div className="invite-code-card">
-                    <div className="invite-code-header">
-                      <Key className="code-icon" />
-                      <div>
-                        <span className="code-label">Team Invite Code: </span>
-                        <strong className="code-val">{activeTeam.inviteCode}</strong>
-                      </div>
-                    </div>
-                    <span className="code-hint">Share this code with teammates to join your team</span>
-                  </div>
-
-                  {/* Members List */}
-                  <h4 className="members-title">Team Roster ({activeTeam.members?.length || 1})</h4>
-                  <div className="members-list">
-                    {(activeTeam.members || []).map((m) => (
-                      <div key={m._id} className="member-row">
-                        <img src={m.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${m.name}`} alt={m.name} className="user-avatar-sm" />
-                        <div className="member-info">
-                          <span className="member-name">{m.name}</span>
-                          <span className="member-email">{m.email}</span>
-                        </div>
-                        {activeTeam.leader?._id === m._id && <span className="leader-pill">LEADER</span>}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="team-card-footer">
-                    <button className="btn-secondary-danger" onClick={() => handleLeaveTeam(activeTeam._id)}>
-                      <LogOut className="btn-icon" /> Leave Team
-                    </button>
-                  </div>
+                <div className="empty-submission-placeholder text-center py-8 bg-gray-950/30 rounded-xl border border-dashed border-gray-800 my-4">
+                  <Clock className="w-10 h-10 text-gray-500 mx-auto mb-2" />
+                  <p className="text-sm text-gray-400">No project submitted yet for this hackathon.</p>
+                  <p className="text-xs text-gray-500 mt-1">Make sure to submit before the deadline!</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Right Column: Submission Tracker */}
-          <div className="dashboard-col">
+          {/* Column 3: Event Overview & Results Panel */}
+          <div className="space-y-6">
             <div className="card-glass-panel">
-              <div className="panel-header-row">
-                <h3 className="panel-title"><Code className="title-icon" /> Project Submission</h3>
-                {activeTeam && (
-                  isResultsPublished ? (
-                    <span className="badge-warning font-mono text-xs px-3 py-1 rounded-full font-bold">
-                      🔒 Submissions Locked (Results Announced)
-                    </span>
-                  ) : (
-                    <button className="btn-primary-glow sm" onClick={() => setShowSubmitModal(true)}>
-                      {activeSubmission ? <Edit className="btn-icon" /> : <Plus className="btn-icon" />}
-                      {activeSubmission ? "Edit Project" : "Submit Project"}
-                    </button>
-                  )
-                )}
-              </div>
+              <h3 className="panel-title"><Award className="title-icon text-amber-400" /> Event Status & Results</h3>
 
-              {!activeSubmission ? (
-                <div className="empty-state-card py-8">
-                  <Code className="empty-icon" />
-                  <h4>No Project Submitted</h4>
-                  <p>Submit your GitHub repository, live demo link, and project details before the deadline.</p>
+              {activeTeam?.hackathon?.resultsPublished ? (
+                <div className="published-results-banner p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 mt-4 text-center">
+                  <Award className="w-12 h-12 text-amber-400 mx-auto mb-2" />
+                  <h4 className="font-bold text-amber-300 text-lg">Winners Announced!</h4>
+                  <p className="text-xs text-gray-300 mt-1">Official scores and leaderboard rankings have been published by the organizer.</p>
+                  <button className="btn-primary-glow btn-sm mt-3 w-full" onClick={() => setPage("leaderboard")}>
+                    View Winner Leaderboard
+                  </button>
                 </div>
               ) : (
-                <div className="submission-preview-card">
-                  <div className="sub-header-row">
-                    <h3 className="sub-title">{activeSubmission.title}</h3>
-                    {isResultsPublished ? (
-                      <span className="badge-success font-mono text-xs px-3 py-1 rounded-full font-bold">
-                        ✔ EVALUATED & VERIFIED
-                      </span>
-                    ) : (
-                      <StatusBadge status={activeSubmission.status || "pending"} />
-                    )}
-                  </div>
-
-                  <p className="sub-desc">{activeSubmission.description}</p>
-
-                  <div className="sub-links-row">
-                    {activeSubmission.repoLink && (
-                      <a href={activeSubmission.repoLink} target="_blank" rel="noreferrer" className="sub-link-btn">
-                        <GitBranch className="btn-icon" /> Repository
-                      </a>
-                    )}
-                    {activeSubmission.demoLink && (
-                      <a href={activeSubmission.demoLink} target="_blank" rel="noreferrer" className="sub-link-btn text-cyan">
-                        <ExternalLink className="btn-icon" /> Live Demo
-                      </a>
-                    )}
-                  </div>
-
-                  {/* Certificate button - Only available AFTER results are published */}
-                  {isResultsPublished ? (
-                    <div className="cert-claim-box mt-6">
-                      <FileCheck className="claim-icon text-gold" />
-                      <div>
-                        <h4>Digital Verification Certificate</h4>
-                        <p>Official hackathon results are published! View and print your certificate.</p>
-                      </div>
-                      <button className="btn-primary-glow sm" onClick={() => setShowCertModal(true)}>
-                        View Certificate
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="cert-claim-box mt-6 opacity-75">
-                      <Lock className="claim-icon text-amber-500" />
-                      <div>
-                        <h4>Digital Verification Certificate</h4>
-                        <p className="text-xs text-amber-400 font-semibold">
-                          ⌛ Certificate locked. Available after the organizer announces final results.
-                        </p>
-                      </div>
-                      <button className="btn-hero-secondary sm opacity-60" disabled title="Certificate will unlock once results are published">
-                        Locked
-                      </button>
-                    </div>
-                  )}
+                <div className="pending-results-box p-4 rounded-xl bg-gray-900/50 border border-gray-800 mt-4 text-center">
+                  <Clock className="w-10 h-10 text-cyan mx-auto mb-2" />
+                  <h4 className="font-bold text-gray-200">Judging In Progress</h4>
+                  <p className="text-xs text-gray-400 mt-1">Results and leaderboard will be visible here once the organizer publishes final scores.</p>
                 </div>
               )}
             </div>
@@ -363,81 +362,84 @@ export default function ParticipantDashboard({ setPage, setSelectedHackathon }) 
       )}
 
       {/* Join Team Modal */}
-      <Modal isOpen={showJoinModal} onClose={() => setShowJoinModal(false)} title="Join Team with Invite Code">
+      <Modal isOpen={showJoinModal} onClose={() => !submitting && setShowJoinModal(false)} title="Join Team via Secret Code">
         <form onSubmit={handleJoinTeam} className="modal-form">
+          {joinMsg && <div className="auth-error-alert">{joinMsg}</div>}
           <div className="form-group">
-            <label>Invite Code</label>
+            <label>6-Character Team Secret Code</label>
             <input
               type="text"
-              placeholder="e.g. NEURAL"
               value={inviteCode}
-              onChange={(e) => setInviteCode(e.target.value)}
+              onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+              placeholder="e.g. ABC123"
+              maxLength={6}
+              className="text-center font-mono text-xl tracking-widest uppercase font-bold"
               required
+              disabled={submitting}
             />
           </div>
-          {joinMsg && <div className="auth-error-alert">{joinMsg}</div>}
-          <button type="submit" className="btn-primary-glow w-full mt-4">
-            Join Team
+          <button type="submit" className="btn-primary-glow w-full mt-4 flex items-center justify-center gap-2" disabled={submitting}>
+            {submitting ? (
+              <>
+                <span className="btn-spinner-sm"></span>
+                <span>Joining Team...</span>
+              </>
+            ) : (
+              <span>Join Team Workspace</span>
+            )}
           </button>
         </form>
       </Modal>
 
-      {/* Submission Form Modal */}
-      <Modal isOpen={showSubmitModal} onClose={() => setShowSubmitModal(false)} title={activeSubmission ? "Edit Project Submission" : "Submit Hackathon Project"}>
+      {/* Submit / Edit Project Modal */}
+      <Modal isOpen={showSubmitModal} onClose={() => !submitting && setShowSubmitModal(false)} title={activeSubmission ? "Edit Project Submission" : "Submit Hackathon Project"}>
         <form onSubmit={handleSubmitProject} className="modal-form">
-          <div className="form-group">
-            <label>Project Name / Title</label>
-            <input type="text" value={subForm.title} onChange={(e) => setSubForm({ ...subForm, title: e.target.value })} required />
-          </div>
+          {subError && <div className="auth-error-alert">{subError}</div>}
 
           <div className="form-group">
-            <label>GitHub Repository URL</label>
-            <input type="url" value={subForm.repoLink} onChange={(e) => setSubForm({ ...subForm, repoLink: e.target.value })} placeholder="https://github.com/..." required />
-          </div>
-
-          <div className="form-group">
-            <label>Live Demo URL</label>
-            <input type="url" value={subForm.demoLink} onChange={(e) => setSubForm({ ...subForm, demoLink: e.target.value })} placeholder="https://..." />
+            <label>Project Title</label>
+            <input type="text" value={subForm.title} onChange={(e) => setSubForm({ ...subForm, title: e.target.value })} placeholder="Project Name..." required disabled={submitting} />
           </div>
 
           <div className="form-group">
             <label>Problem Statement</label>
-            <textarea rows={2} value={subForm.problemStatement} onChange={(e) => setSubForm({ ...subForm, problemStatement: e.target.value })}></textarea>
+            <textarea rows={2} value={subForm.problemStatement} onChange={(e) => setSubForm({ ...subForm, problemStatement: e.target.value })} placeholder="What problem does your project solve?" disabled={submitting}></textarea>
           </div>
 
           <div className="form-group">
-            <label>Solution & Features</label>
-            <textarea rows={2} value={subForm.solution} onChange={(e) => setSubForm({ ...subForm, solution: e.target.value })}></textarea>
+            <label>Proposed Solution & Overview</label>
+            <textarea rows={3} value={subForm.description} onChange={(e) => setSubForm({ ...subForm, description: e.target.value })} placeholder="Describe how your app works..." required disabled={submitting}></textarea>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label><Code className="icon-inline" /> GitHub Repository Link</label>
+              <input type="url" value={subForm.repoLink} onChange={(e) => setSubForm({ ...subForm, repoLink: e.target.value })} placeholder="https://github.com/..." required disabled={submitting} />
+            </div>
+
+            <div className="form-group">
+              <label><ExternalLink className="icon-inline" /> Live Web Application Link</label>
+              <input type="url" value={subForm.demoLink} onChange={(e) => setSubForm({ ...subForm, demoLink: e.target.value })} placeholder="https://my-app.vercel.app..." disabled={submitting} />
+            </div>
           </div>
 
           <div className="form-group">
-            <label>Description</label>
-            <textarea rows={3} value={subForm.description} onChange={(e) => setSubForm({ ...subForm, description: e.target.value })} required></textarea>
+            <label>Technologies Used (Comma-separated)</label>
+            <input type="text" value={subForm.techStack} onChange={(e) => setSubForm({ ...subForm, techStack: e.target.value })} placeholder="React, Node.js, MongoDB, Tailwind..." disabled={submitting} />
           </div>
 
-          <div className="form-group">
-            <label>Tech Stack (Comma-separated)</label>
-            <input type="text" value={subForm.techStack} onChange={(e) => setSubForm({ ...subForm, techStack: e.target.value })} placeholder="React, Node.js, Express, MongoDB" />
-          </div>
-
-          {subError && <div className="auth-error-alert">{subError}</div>}
-
-          <button type="submit" className="btn-primary-glow w-full mt-4">
-            {activeSubmission ? "Save Submission Changes" : "Submit Project Now"}
+          <button type="submit" className="btn-primary-glow w-full mt-4 flex items-center justify-center gap-2" disabled={submitting}>
+            {submitting ? (
+              <>
+                <span className="btn-spinner-sm"></span>
+                <span>Submitting Project...</span>
+              </>
+            ) : (
+              <span>{activeSubmission ? "Update Submission" : "Submit Project"}</span>
+            )}
           </button>
         </form>
       </Modal>
-
-      {/* Certificate Modal */}
-      {showCertModal && (
-        <CertificateModal
-          isOpen={showCertModal}
-          onClose={() => setShowCertModal(false)}
-          recipientName={user?.name}
-          hackathonTitle={activeTeam?.hackathon?.title || "HackSphere 2026 Innovation Challenge"}
-          teamName={activeTeam?.name}
-        />
-      )}
     </div>
   );
 }

@@ -140,3 +140,4 @@ const sendAnnouncementEmail = async (recipientEmails, subject, title, messageCon
 };
 
 module.exports = { sendOTPEmail, sendAnnouncementEmail };
+
