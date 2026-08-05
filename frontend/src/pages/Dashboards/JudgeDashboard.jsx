@@ -14,6 +14,8 @@ import {
   Sparkles,
   FileCode,
   Video,
+  Users,
+  Code,
 } from "lucide-react";
 
 export default function JudgeDashboard() {
@@ -125,32 +127,41 @@ export default function JudgeDashboard() {
   });
 
   return (
-    <div className="section-container judge-dashboard-page">
-      <div className="page-header flex justify-between items-center flex-wrap gap-4">
+    <div className="judge-dashboard-container pb-16">
+      {/* Top Header */}
+      <div className="dashboard-header-bar">
         <div>
-          <span className="section-badge"><Award className="badge-icon" /> JUDGING PORTAL</span>
-          <h1 className="page-title">Assigned Projects to Evaluate</h1>
-          <p className="page-subtitle">
-            Evaluate submitted hackathon projects on Innovation, UI, Code Complexity, and Presentation.
+          <div className="flex items-center gap-2 mb-1">
+            <span className="section-badge"><Award className="badge-icon" /> JUDGING PORTAL</span>
+          </div>
+          <h1 className="page-title text-2xl font-bold text-white">Assigned Projects to Evaluate</h1>
+          <p className="text-sm text-gray-400">
+            Evaluate submitted hackathon projects assigned to you by the event organizer.
           </p>
         </div>
 
         {/* Filter Pills */}
-        <div className="filter-pills-group">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
-            className={`filter-pill ${filterMode === "all" ? "active" : ""}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              filterMode === "all" ? "bg-cyan-600 text-white" : "bg-gray-900 text-gray-400 hover:text-white border border-gray-800"
+            }`}
             onClick={() => setFilterMode("all")}
           >
             All Projects ({assignedItems.length})
           </button>
           <button
-            className={`filter-pill ${filterMode === "pending" ? "active" : ""}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              filterMode === "pending" ? "bg-amber-600 text-white" : "bg-gray-900 text-gray-400 hover:text-white border border-gray-800"
+            }`}
             onClick={() => setFilterMode("pending")}
           >
             Pending ({assignedItems.filter((i) => !i.myScore).length})
           </button>
           <button
-            className={`filter-pill ${filterMode === "scored" ? "active" : ""}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              filterMode === "scored" ? "bg-emerald-600 text-white" : "bg-gray-900 text-gray-400 hover:text-white border border-gray-800"
+            }`}
             onClick={() => setFilterMode("scored")}
           >
             Evaluated ({assignedItems.filter((i) => !!i.myScore).length})
@@ -159,69 +170,90 @@ export default function JudgeDashboard() {
       </div>
 
       {loading ? (
-        <div className="loading-spinner-container py-12">
+        <div className="loading-spinner-container py-16">
           <div className="spinner"></div>
         </div>
       ) : filteredItems.length === 0 ? (
-        <div className="empty-state-card text-center py-12">
-          <Award className="empty-icon mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-white mb-2">No assigned projects match your filter.</h3>
-          <p className="text-gray-400">Organizers assign approved hackathon teams to expert judges.</p>
+        <div className="dash-card-box p-12 text-center max-w-xl mx-auto">
+          <Award className="w-12 h-12 text-cyan mx-auto mb-3" />
+          <h3 className="text-xl font-bold text-white mb-2">No Projects Found</h3>
+          <p className="text-sm text-gray-400">
+            Organizers will assign approved hackathon teams to expert judges for evaluation.
+          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="judge-projects-grid">
           {filteredItems.map((item) => {
             const team = item.team;
             const sub = item.submission;
             const hasScore = !!item.myScore;
 
             return (
-              <div key={team._id} className="card-glass hover-glow flex flex-col justify-between p-6">
+              <div key={team._id} className="judge-project-card">
                 <div>
-                  <div className="flex justify-between items-start mb-3">
+                  <div className="judge-card-header">
                     <span className="text-2xs font-mono font-bold text-cyan uppercase tracking-wider">
-                      {team.hackathon?.title}
+                      {team.hackathon?.title || "Hackathon Event"}
                     </span>
-                    <span className={`status-badge-sm ${hasScore ? "approved" : "pending"}`}>
+                    <span className={`px-2.5 py-0.5 rounded text-xs font-mono font-bold ${
+                      hasScore ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" : "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                    }`}>
                       {hasScore ? `Scored (${item.myScore.totalScore}/70)` : "Pending"}
                     </span>
                   </div>
 
-                  <h3 className="text-xl font-bold text-white mb-1">{team.name}</h3>
-                  <div className="text-xs text-gray-400 mb-4 font-mono">
+                  <div className="judge-team-name">{team.name}</div>
+                  <div className="text-xs text-gray-400 font-mono mb-3">
                     Leader: {team.leader?.name || "N/A"} | {team.members?.length || 1} Members
                   </div>
 
                   {sub ? (
-                    <div className="bg-gray-950/60 p-4 rounded-xl border border-gray-800 mb-4">
-                      <div className="font-bold text-sm text-cyan mb-1">{sub.title}</div>
-                      <p className="text-xs text-gray-300 line-clamp-3 mb-3">{sub.description}</p>
+                    <div className="judge-submission-box">
+                      <div className="font-bold text-sm text-cyan mb-1 flex items-center gap-1.5">
+                        <Code className="w-4 h-4" /> {sub.title}
+                      </div>
+                      {sub.description && (
+                        <p className="text-xs text-gray-300 line-clamp-2 mb-3 leading-relaxed">
+                          {sub.description}
+                        </p>
+                      )}
 
-                      <div className="flex flex-wrap gap-2 text-xs font-mono">
+                      <div className="flex flex-wrap gap-2 text-xs font-mono pt-1">
                         {sub.githubRepo && (
-                          <a href={sub.githubRepo} target="_blank" rel="noreferrer" className="text-cyan underline flex items-center gap-1">
-                            <FileCode className="w-3 h-3" /> GitHub
+                          <a
+                            href={sub.githubRepo}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-cyan hover:underline inline-flex items-center gap-1 bg-gray-900 px-2 py-1 rounded border border-gray-800"
+                          >
+                            <FileCode className="w-3.5 h-3.5" /> GitHub <ExternalLink className="w-3 h-3 ml-0.5" />
                           </a>
                         )}
                         {sub.demoUrl && (
-                          <a href={sub.demoUrl} target="_blank" rel="noreferrer" className="text-emerald-400 underline flex items-center gap-1">
-                            <ExternalLink className="w-3 h-3" /> Live Demo
+                          <a
+                            href={sub.demoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-emerald-400 hover:underline inline-flex items-center gap-1 bg-gray-900 px-2 py-1 rounded border border-gray-800"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" /> Live Demo <ExternalLink className="w-3 h-3 ml-0.5" />
                           </a>
                         )}
                       </div>
                     </div>
                   ) : (
-                    <div className="p-4 rounded-xl bg-gray-950/30 border border-dashed border-gray-800 text-center text-xs text-gray-500 mb-4">
+                    <div className="p-4 rounded-xl bg-gray-950/30 border border-dashed border-gray-800 text-center text-xs text-gray-500 my-3">
                       No submission details provided yet.
                     </div>
                   )}
                 </div>
 
                 <button
-                  className={hasScore ? "btn-secondary-glow w-full" : "btn-primary-glow w-full"}
+                  className={hasScore ? "btn-secondary-glow w-full flex items-center justify-center gap-2 mt-4" : "btn-primary-glow w-full flex items-center justify-center gap-2 mt-4"}
                   onClick={() => openEvaluationModal(item)}
                 >
-                  <Sliders className="btn-icon" /> {hasScore ? "Edit Score & Feedback" : "Evaluate & Score Team"}
+                  <Sliders className="w-4 h-4" />
+                  <span>{hasScore ? "Edit Score & Feedback" : "Evaluate & Score Team"}</span>
                 </button>
               </div>
             );
@@ -229,12 +261,12 @@ export default function JudgeDashboard() {
         </div>
       )}
 
-      {/* Score Modal */}
+      {/* Evaluation Rubric Modal */}
       <Modal isOpen={!!activeItem} onClose={() => !submitting && setActiveItem(null)} title={`Evaluate: ${activeItem?.team?.name || ""}`}>
-        <form onSubmit={handleSubmitScore} className="modal-form">
-          {scoreMsg && <div className="auth-success-alert">{scoreMsg}</div>}
+        <form onSubmit={handleSubmitScore} className="modal-form space-y-4">
+          {scoreMsg && <div className="auth-success-alert mb-3">{scoreMsg}</div>}
 
-          <div className="scoring-criteria-grid space-y-4 my-2">
+          <div className="space-y-3 my-2">
             {[
               { key: "innovation", label: "Innovation & Originality (0-10)" },
               { key: "technicalComplexity", label: "Technical Complexity & Code Quality (0-10)" },
@@ -244,7 +276,7 @@ export default function JudgeDashboard() {
               { key: "documentation", label: "Documentation & Code Structure (0-10)" },
               { key: "presentation", label: "Presentation & Pitch Clarity (0-10)" },
             ].map((crit) => (
-              <div key={crit.key} className="criteria-row bg-gray-950/50 p-3 rounded-xl border border-gray-800">
+              <div key={crit.key} className="bg-gray-950/60 p-3 rounded-xl border border-gray-800">
                 <div className="flex justify-between items-center mb-1">
                   <label className="text-xs font-bold text-gray-200">{crit.label}</label>
                   <span className="font-mono text-cyan font-bold text-sm">{scoreForm[crit.key]} / 10</span>
@@ -263,9 +295,9 @@ export default function JudgeDashboard() {
             ))}
           </div>
 
-          <div className="total-score-card p-4 rounded-xl bg-cyan-950/30 border border-cyan-500/40 text-center my-4">
-            <div className="text-xs font-mono text-cyan uppercase tracking-wider font-bold">Total Score</div>
-            <div className="font-mono text-3xl font-extrabold text-white mt-1">
+          <div className="p-4 rounded-xl bg-cyan-950/40 border border-cyan-500/40 text-center my-3">
+            <div className="text-2xs font-mono text-cyan uppercase tracking-wider font-bold">Total Score</div>
+            <div className="font-mono text-3xl font-black text-white mt-1">
               {calculateTotal()} <span className="text-sm text-gray-400 font-normal">/ 70</span>
             </div>
           </div>
@@ -289,7 +321,7 @@ export default function JudgeDashboard() {
               </>
             ) : (
               <>
-                <Send className="btn-icon" />
+                <Send className="w-4 h-4" />
                 <span>Submit Final Score ({calculateTotal()}/70)</span>
               </>
             )}
